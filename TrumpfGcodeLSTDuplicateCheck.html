@@ -1,0 +1,225 @@
+<html>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-16">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+
+
+
+</head>
+<style>
+	scripttt {
+		display: none;
+	}
+</style>
+
+
+<body>
+	<pre id=TODOs>
+What it does:
+
+Really simple program that reads program file 
+and finds overlaying cutting paths 
+shows line numbers with duplicated coordinates
+by searching for identical X,Y,Z combinations
+
+
+1.Select your file
+2. Program simply prints out pairs : 
+original line number and 
+the duplicated coordinates line number. e.g.:
+ 'Line N4350 is duplicated on line N56750'
+
+3. TESTED on 4Mb .LST File
+4. TESTED on 
+ 
+TO DO IN THE FUTURE:
+- Group the N numbers if whole paths are found to occupy identical coordinates
+		and then print out only duplicated range 
+(e.g. lines N1230-N2480 are duplicated on lines N9950-N10540)
+- Print the block number for groups
+- Gradually show new duplicates that were found, so user don't have to wait if file is really big, (run tests on big program files) 
+- identify evaporation cycles
+</pre>
+	<input type="file" id=fileInput onchange="loadFileAsText()">
+	<pre id=timetook></pre>
+	<pre id=tout></pre>
+	<pre id="tin" style="display:none">
+</pre>
+	<script>
+		time_Start = 0;
+		textFromFileLoaded = ''
+		window.onerror = (...x) => {
+			x[2] = x[2] - 8;
+			console.error(x);
+		}
+
+		say = console.log
+
+
+		sa = x => say(x);
+		say(2)
+
+		p = x => tout.innerText += x
+		p2 = x => tout.innerText = x
+		pl = x => p(x + "\n")
+		as = (...x) => x.join('')
+		ap = (...x) => p(as(...x))
+		apl = (...x) => pl(as(...x))
+		function rep(i, func) {
+			if (func()) {
+				setTimeout(x => rep(func), 100)
+			}
+
+		}
+
+		function loadFileAsText() {
+			time_Start = Date.now()
+			var fileToLoad = fileInput.files[0];
+
+			var fileReader = new FileReader();
+			fileReader.onload = function (fileLoadedEvent) {
+				textFromFileLoaded = fileLoadedEvent.target.result;
+				startDo()
+			};
+
+			fileReader.readAsText(fileToLoad, "UTF-8");
+		}
+	</script>
+
+	<scripttt>
+		allls=[]
+		mr = _=> (Math.random()*1000).toFixed(2)
+		mayb = may=> Math.random() < may rndarr=arr=> {
+			rndi = Math.floor(Math.random()*arr.length)
+			return arr[i];
+			}
+			function generateRandomLines(i){
+			xv = mr()
+			yv = mr()
+			l = 'N' + (500 + i*10)+'';
+			l += ' X = ' + xv + ' Y = ' + yv + ' Z = ' + mr() + ' B = ' + mr()
+			allls.push(l)
+			if(mayb(.005)){
+			pl(rndarr(allls))
+			}
+			pl(l)
+			}
+
+			for(i=0;i<200;i++){ generateRandomLines(i) } </scripttt>
+				<script>
+					const START_TEXT = 'START_TEXT';
+					const tokenX = 'X = ';
+					const tokenY = 'Y = ';
+					const tokenZ = 'Z = ';
+					const tokenB = 'B = ';
+					const tokenG = 'G01';
+					const tokenCIP = 'CIP';
+					const tokenI1 = 'I1 = ';
+					const tokenJ1 = 'J1 = ';
+					const tokenK1 = 'K1 = ';
+
+					/* CIP I1 = 2947.08 J1 = 1005.37 K1 = 100.15 X = 2946.63 Y = 1005.48 Z = 100.02 B = 12.97 C = 178.86*/
+					nlrgx = /(\r\n|\n|\r)/gm;
+
+
+					function hasDupes(strings) {
+						const table = {}
+						const tableinds = [];
+						for (let string of strings) {
+							if (string in table) {
+								let ind = strings.indexOf(string)
+								let ind2 = strings.indexOf(string, ind + 1)
+								tableinds.push(ind, ind2)
+							}
+							table[string] = true;
+						}
+						return tableinds
+					}
+
+					function fillfiltercoords(arr, l) {
+						//ignore comments and lines with no N number FASTER
+						if (l.substring(0, 1) !== 'N') return false;
+						let indx = l.indexOf(tokenX);
+						//way faster since trutops never shaves off file size discarding redundant tokens
+						if (indx < 0) return false;
+						let indb = l.indexOf(tokenB);
+						let stopN = l.indexOf(" ");
+						let Nstring = l.substring(0, stopN);
+						arr.push([Nstring, l.substring(indx + tokenX.length, indb)])
+					}
+
+					function startDo() {
+						text = textFromFileLoaded;
+						text = text.substring(text.indexOf(START_TEXT) + START_TEXT.length)
+						text = text.replace(nlrgx, '\n')
+						tarr = text.split('\n')
+						nosncoords = []
+						tarr.forEach(l => fillfiltercoords(nosncoords, l))
+						nos = nosncoords.map(x => x[0])
+						coords = nosncoords.map(x => x[1])
+						// nosncoords.map(pl);
+						dupinds = hasDupes(coords)
+						if (!dupinds.length) return pl("no duplicate coordinates found");
+
+						pl("has duplicate coordinates on lines:")
+						dupns = dupinds.map(i => nos[i])
+						msg = '';
+						dupns.forEach((x, i) => {
+							mod2 = i % 2;
+							mm = !mod2 ? 'line ' : ' is duplicated on line '
+							endch = !mod2 ? '' : '\n';
+							msg += mm + x + endch
+						})
+						p(msg)
+						time_End = Date.now()
+						timeItTook_milli = time_End - time_Start;
+						timeItTook_m = Math.floor((timeItTook_milli) / 1000 / 60);
+						timeItTook_s = Math.floor((timeItTook_milli - (timeItTook_m * 1000 * 60)) / 1000);
+						timetook.innerText = "checking took: " + timeItTook_m + "m " + timeItTook_s + "s";
+					}
+				</script>
+				<scripttt>
+					ppp = i=>{
+					absi = Math.abs(i)
+					sol = Math.sin(i)
+					sign = absi /i
+
+					m = [i,sol]
+					//if(!m)
+					//apl('index',i," % ",3," = ",m,'move vert:',!(!!m))
+					apl(m)
+					}
+
+
+
+					ppp(359)
+					ppp(1)
+					rep(myrep)
+				</scripttt>
+				<scripttt>
+					nieteraz.to
+					tr = ttt.innerText.trim()
+					arr = tr.trim().split(/\s+/);
+					arr = arr.map(x=>x.trim());
+					arr = arr.filter(x=>x.length);
+					fsa = arr.map(x=>["\"",x,"\""].join(''))
+					fsa2 = [];
+					fsa.forEach((x,i)=>{
+					fsa2.push(x)
+					//if (i%4) fsa2.push('')
+					})
+					s = ["[",fsa2.join(),']'].join('')
+					s = arr.join(',')
+
+					document.body.innerText = s;
+
+				</scripttt>
+</body>
+
+
+</html>
