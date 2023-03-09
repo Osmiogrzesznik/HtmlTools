@@ -35,7 +35,7 @@ the duplicated coordinates line number. e.g.:
  'Line N4350 is duplicated on line N56750'
 
 3. TESTED on 4Mb .LST File
-4. TESTED on 
+4. TESTED on 8Mb(10) : takes 1s (8MB file with N reaching N499990....)
  
 TO DO IN THE FUTURE:
 - Group the N numbers if whole paths are found to occupy identical coordinates
@@ -44,6 +44,10 @@ TO DO IN THE FUTURE:
 - Print the block number for groups
 - Gradually show new duplicates that were found, so user don't have to wait if file is really big, (run tests on big program files) 
 - identify evaporation cycles
+A- identify inside/outside cut (possibly as separate program, may be slower)
+			-A1 NOTE 1 : if given a template of one correct part Human supervised (copy paste from first blocks, basically)
+			 it may be easier to identify incorrect order without slow geometrical algorithms
+			 KISS  - Keep it simple, stupid
 </pre>
 	<input type="file" id=fileInput onchange="loadFileAsText()">
 	<pre id=timetook></pre>
