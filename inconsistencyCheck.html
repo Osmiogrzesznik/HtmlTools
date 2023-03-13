@@ -57,6 +57,8 @@
             <legend>Load new File/ Export image etc.</legend>
             <input type="file" id=fileInput onchange="loadFileAsText()">
             <button id="downloadAsImageBtn" onclick="DownloadCanvasAsImage()">Save Image</button>
+            <button id="downloadReportsBtn" onclick="DownloadReports()">Save Reports</button>
+
         </fieldset>
         <fieldset>
             <legend>MetaBlock Selection -- Currently <span id="trimLengthSpan">0</span> Blocks selected </legend>
@@ -85,6 +87,7 @@
         <script>
             time_Start = 0;
             textFromFileLoaded = ''
+            fnm = '';
 
             /* my tools to make development on mobile phone easier*/
             window.onerror = (...x) => {
@@ -97,7 +100,10 @@
 
             sa = x => say(x);
             say(2)
-            report = say
+
+            reportsAr = []
+            report = (...x) => reportsAr.push(x.join('') + "\n")
+
             p = x => tout.innerText += x
             p2 = x => tout.innerText = x
             pl = x => p(x + "\n")
@@ -112,6 +118,23 @@
 
             }
 
+
+
+
+
+            function saveText(text, filename) {
+                var a = document.createElement('a');
+                a.setAttribute('href', 'data:text/plain;charset=utf-u,' + encodeURIComponent(text));
+                a.setAttribute('download', filename);
+                a.click();
+            }
+
+
+
+
+
+
+
         </script>
 
 
@@ -125,13 +148,21 @@
             sections = [];
             StartTrim = 0;
             EndTrim = 0;
+
+            function DownloadReports() {
+                str = reportsAr.join('')
+                saveText(str, fnm + "blankEZreport.txt")
+            }
+
+
+
             function loadFileAsText() {
 
                 time_Start = Date.now()
                 say("started reading")
                 var fileToLoad = fileInput.files[0];
                 window.fileToLoad = fileToLoad
-                console.log(window.fileToLoad.name)
+                fnm = window.fileToLoad.name
 
                 var fileReader = new FileReader();
                 fileReader.onload = function (fileLoadedEvent) {
@@ -148,8 +179,8 @@
                 // fetch("P83932_SINGLEQUIP003_RH22.LST")
                 // fetch("PRICCP0059001.LST")
                 // fetch("PRICCP0027001.LST")
-
-                fetch("PRICCP0076001.LST")
+                fnm = "PRICCP0076001.LST"
+                fetch(fnm)
                     .then(r => r.text())
                     .then(t => { textFromFileLoaded = t; startDo() })
             }
@@ -259,7 +290,7 @@
             function DownloadCanvasAsImage() {
                 let downloadLink = document.createElement('a');
 
-                downloadLink.setAttribute('download', 'CanvasAsImage.png');
+                downloadLink.setAttribute('download', fnm + 'blankEZ.png');
                 canvas.toBlob(function (blob) {
                     let url = URL.createObjectURL(blob);
                     downloadLink.setAttribute('href', url);
@@ -287,7 +318,6 @@
                 obj.addEventListener('mousemove', function (event) {
 
                     if (mousedowned) {
-                        console.log(event)
                         dragged = true
                         moveControls(event)
                     }
@@ -297,11 +327,9 @@
                     if (dragged == true) {
                         return
                     }
-                    console.log("CLICK!! ")
                 }, true)
 
                 obj.addEventListener('mydragevent', function (event) {
-                    console.log("hello")
                     event.preventDefault();
                     moveControls(event);
                 }, true)
@@ -327,7 +355,6 @@
 
 
             function moveControls(event) {
-                console.log("moveControls", event)
 
 
 
@@ -356,11 +383,6 @@
 
                     // console.log();
 
-                    console.log([Tstyle.zoom, TzoomF, Ex, eZ.ctrls.cX]);
-
-
-
-                    console.log("↹:\n" + eZ.ctrls.cX + "\n" + eZ.ctrls.cY)
 
                     //event.target.innerText="↹:\n"+ctrls.cX+"\n"+ctrls.cY;
                 } else {

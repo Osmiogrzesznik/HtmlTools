@@ -12,7 +12,6 @@ say = console.log
 
 sa = x => say(x);
 say(2)
-
 p = x => tout.innerText += x
 p2 = x => tout.innerText = x
 pl = x => p(x + "\n")
@@ -20,14 +19,9 @@ as = (...x) => x.join('')
 ap = (...x) => p(as(...x))
 apl = (...x) => pl(as(...x))
 
-function rep(i, func) {
-    if (func()) {
-        setTimeout(x => rep(func), 100)
-    }
 
-}
-
-
+reportsAr = []
+report = (...x) => reportsAr.push(x.join('') + "\n")
 
 
 
@@ -274,7 +268,7 @@ function checkMetablockConsistency(origMeta, metablocks) {
             let bcopyOK = areBlocksOffsetIdentical_not_y(borig, bcopy)
             if (!bcopyOK) {
                 anyblockwrong = true
-                let msg = [i_in_metablock, " block in ", wmbi, " incosistent! block_no:", bcopy[0].B].join(" ")
+                let msg = [i_in_metablock, " block in part", wmbi + 1, " incosistent! block_no:", bcopy[0].B].join(" ")
 
                 bcopy.forEach(s => {
                     s.bad = true;
@@ -293,7 +287,7 @@ function checkMetablockConsistency(origMeta, metablocks) {
                 }
 
                 say(msg)
-                reports.push(msg)
+                report(msg)
             }
             return true; //bcopyOK;
 
