@@ -1,5 +1,6 @@
 demo running live on:
 https://osmiogrzesznik.github.io/HtmlTools/TrumpfGcodeLSTDuplicateCheck.html
+[graphical](https://osmiogrzesznik.github.io/HtmlTools/inconsistencyCheck.html)
 ##What it does:
 
 Really simple program that reads program file
