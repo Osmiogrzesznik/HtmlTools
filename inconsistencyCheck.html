@@ -1,0 +1,140 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<style>
+    #tin {
+        display: none;
+    }
+
+    canvas {
+        border: 1px solid red;
+    }
+</style>
+
+<body>
+    <input type="file" id=fileInput onchange="loadFileAsText()">
+    <pre id=timetook></pre>
+    <pre id=tout></pre>
+    <pre id="tin" style="display:none">
+</pre>
+    <script>
+        time_Start = 0;
+        textFromFileLoaded = ''
+
+        /* my tools to make development on mobile phone easier*/
+        window.onerror = (...x) => {
+            x[2] = x[2] - 8;
+            console.error(x);
+        }
+
+        say = console.log
+
+
+        sa = x => say(x);
+        say(2)
+        report = say
+        p = x => tout.innerText += x
+        p2 = x => tout.innerText = x
+        pl = x => p(x + "\n")
+        as = (...x) => x.join('')
+        ap = (...x) => p(as(...x))
+        apl = (...x) => pl(as(...x))
+
+        function rep(i, func) {
+            if (func()) {
+                setTimeout(x => rep(func), 100)
+            }
+
+        }
+
+    </script>
+
+
+    <script src="trumpftoStandardgcode.js"></script>
+
+
+    </pre>
+    <script>
+        textFromFileLoaded = '';
+        text = '';
+        sections = [];
+
+        function loadFileAsText() {
+
+            time_Start = Date.now()
+            say("started reading")
+            var fileToLoad = fileInput.files[0];
+            window.fileToLoad = fileToLoad
+            console.log(window.fileToLoad.name)
+
+            var fileReader = new FileReader();
+            fileReader.onload = function (fileLoadedEvent) {
+                textFromFileLoaded = fileLoadedEvent.target.result;
+                startDo()
+            };
+
+            fileReader.readAsText(fileToLoad, "UTF-8");
+        }
+
+        window.onload = _ => {
+        }
+        blocks = [];
+        function startDo() {
+            say("started separating gcode");
+            text = textFromFileLoaded;
+            let indStart = text.indexOf(END_OF_HEADER)
+            if (indStart < 0) {
+                return say(`LST FILE missing \"${END_OF_HEADER}}\" string`)
+            }
+            indStart = indStart + END_OF_HEADER.length
+            let indEnd = text.indexOf(END_OF_PROGRAM)
+            if (indEnd < 0) {
+                say(`LST FILE missing \"${END_OF_PROGRAM}\" string. Maybe Generated on old software`)
+                indEnd = text.length;
+            } else {
+                indEnd = indEnd
+            }
+
+            text = text.substring(indStart, indEnd)
+            say("finished separating gcode");
+
+            sections = interpretGCode(text)
+            blocks = groupSectionsInBlocks(sections)
+            metablock1 = findRepeatingSequenceInBlocks(blocks)
+            if (!metablock1) {
+                alert("could not find automatically the metablock it may mean that program 1st part and second part are inconsistent, TODO WIP:please select manually")
+            }
+            if (metablock1) {
+                metablocks = splitByMetablock(metablock1, blocks)
+                mbinconsistencies = checkMetablockConsistency(metablock1, metablocks)
+            }
+
+            // checkifRepeatsCorrectly(metablock1, blocks)
+            drawFromPoints(sections)
+            str = getNumericCode_str_repr(sections)
+            if (window.fileToLoad) {
+                console.log(window.fileToLoad.name)
+            }
+            // console.log(str)
+
+            return;
+        }
+
+    </script>
+
+
+
+    <script>
+
+
+    </script>
+
+
+</body>
+
+</html>
