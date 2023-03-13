@@ -14,125 +14,368 @@
     canvas {
         border: 1px solid red;
     }
+
+    #controls {
+        position: fixed;
+        top: 40px;
+        left: 40px;
+        background-color: rgba(150, 200, 255, .2);
+
+    }
+
+
+    .box {
+        font-size: 12px;
+        font-family: Arial;
+        border: 2px solid black;
+        border-radius: 10px;
+    }
+
+    .draggable {
+        user-select: none;
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+        position: relative
+    }
+
+    #draggableCorner {
+        font-size: 3em;
+        padding: 4px;
+        text-align: center;
+        background-color: rgba(200, 255, 255, 0.3);
+        left: -40px;
+        top: -40px;
+    }
 </style>
 
 <body>
-    <input type="file" id=fileInput onchange="loadFileAsText()">
-    <pre id=timetook></pre>
-    <pre id=tout></pre>
-    <pre id="tin" style="display:none">
+
+    <div id="controls" style="zoom:100%;" class="controls slidersPanel box">
+        <div class="draggable box" id="draggableCorner">↹dragme</div>
+        <fieldset>
+            <legend>Load new File/ Export image etc.</legend>
+            <input type="file" id=fileInput onchange="loadFileAsText()">
+            <button id="downloadAsImageBtn" onclick="DownloadCanvasAsImage()">Save Image</button>
+        </fieldset>
+        <fieldset>
+            <legend>MetaBlock Selection -- Currently <span id="trimLengthSpan">0</span> Blocks selected </legend>
+            <button onclick="setMetablockFromSelection()">Set Metablock and check</button>
+            <fieldset>
+                <legend>Start Of selection</legend>
+
+                <button id="prevBlockStartTrimFBtn" onclick="prevBlockStartTrimBtnClick()">Start Trim Prev
+                    Block</button>
+                <input id="StartTrimManual" value="0" onchange="StartTrimSet()">
+                <button id="nextBlockStartTrimBtn" onclick="nextBlockStartTrimBtnClick()">Start Trim Next Block</button>
+            </fieldset>
+            <fieldset>
+                <legend>End Of selection</legend>
+
+                <button id="prevBlockEndTrimFBtn" onclick="prevBlockEndTrimBtnClick()">End Trim Prev Block</button>
+                <input id="EndTrimManual" value="0" onchange="EndTrimSet()">
+                <button id="nextBlockEndTrimBtn" onclick="nextBlockEndTrimBtnClick()">End Trim Next Block</button>
+            </fieldset>
+        </fieldset>
+        <pre id=timetook></pre>
+        <pre id=tout></pre>
+        <pre id="tin" style="display:none">
+        </div>
 </pre>
-    <script>
-        time_Start = 0;
-        textFromFileLoaded = ''
+        <script>
+            time_Start = 0;
+            textFromFileLoaded = ''
 
-        /* my tools to make development on mobile phone easier*/
-        window.onerror = (...x) => {
-            x[2] = x[2] - 8;
-            console.error(x);
-        }
-
-        say = console.log
-
-
-        sa = x => say(x);
-        say(2)
-        report = say
-        p = x => tout.innerText += x
-        p2 = x => tout.innerText = x
-        pl = x => p(x + "\n")
-        as = (...x) => x.join('')
-        ap = (...x) => p(as(...x))
-        apl = (...x) => pl(as(...x))
-
-        function rep(i, func) {
-            if (func()) {
-                setTimeout(x => rep(func), 100)
+            /* my tools to make development on mobile phone easier*/
+            window.onerror = (...x) => {
+                x[2] = x[2] - 8;
+                console.error(x);
             }
 
-        }
-
-    </script>
+            say = console.log
 
 
-    <script src="trumpftoStandardgcode.js"></script>
+            sa = x => say(x);
+            say(2)
+            report = say
+            p = x => tout.innerText += x
+            p2 = x => tout.innerText = x
+            pl = x => p(x + "\n")
+            as = (...x) => x.join('')
+            ap = (...x) => p(as(...x))
+            apl = (...x) => pl(as(...x))
 
+            function rep(i, func) {
+                if (func()) {
+                    setTimeout(x => rep(func), 100)
+                }
 
-    </pre>
-    <script>
-        textFromFileLoaded = '';
-        text = '';
-        sections = [];
-
-        function loadFileAsText() {
-
-            time_Start = Date.now()
-            say("started reading")
-            var fileToLoad = fileInput.files[0];
-            window.fileToLoad = fileToLoad
-            console.log(window.fileToLoad.name)
-
-            var fileReader = new FileReader();
-            fileReader.onload = function (fileLoadedEvent) {
-                textFromFileLoaded = fileLoadedEvent.target.result;
-                startDo()
-            };
-
-            fileReader.readAsText(fileToLoad, "UTF-8");
-        }
-
-        window.onload = _ => {
-        }
-        blocks = [];
-        function startDo() {
-            say("started separating gcode");
-            text = textFromFileLoaded;
-            let indStart = text.indexOf(END_OF_HEADER)
-            if (indStart < 0) {
-                return say(`LST FILE missing \"${END_OF_HEADER}}\" string`)
-            }
-            indStart = indStart + END_OF_HEADER.length
-            let indEnd = text.indexOf(END_OF_PROGRAM)
-            if (indEnd < 0) {
-                say(`LST FILE missing \"${END_OF_PROGRAM}\" string. Maybe Generated on old software`)
-                indEnd = text.length;
-            } else {
-                indEnd = indEnd
             }
 
-            text = text.substring(indStart, indEnd)
-            say("finished separating gcode");
+        </script>
 
-            sections = interpretGCode(text)
-            blocks = groupSectionsInBlocks(sections)
-            metablock1 = findRepeatingSequenceInBlocks(blocks)
-            if (!metablock1) {
-                alert("could not find automatically the metablock it may mean that program 1st part and second part are inconsistent, TODO WIP:please select manually")
+
+        <script src="trumpftoStandardgcode.js"></script>
+
+
+        </pre>
+        <script>
+            textFromFileLoaded = '';
+            text = '';
+            sections = [];
+            StartTrim = 0;
+            EndTrim = 0;
+            function loadFileAsText() {
+
+                time_Start = Date.now()
+                say("started reading")
+                var fileToLoad = fileInput.files[0];
+                window.fileToLoad = fileToLoad
+                console.log(window.fileToLoad.name)
+
+                var fileReader = new FileReader();
+                fileReader.onload = function (fileLoadedEvent) {
+                    textFromFileLoaded = fileLoadedEvent.target.result;
+                    startDo()
+                };
+
+                fileReader.readAsText(fileToLoad, "UTF-8");
             }
-            if (metablock1) {
+
+            window.onload = _ => {
+                // fetch("PRICCP0040001.LST")
+                // fetch("P83931_NONEQUIP003_LH21.LST")
+                // fetch("P83932_SINGLEQUIP003_RH22.LST")
+                // fetch("PRICCP0059001.LST")
+                // fetch("PRICCP0027001.LST")
+
+                fetch("PRICCP0076001.LST")
+                    .then(r => r.text())
+                    .then(t => { textFromFileLoaded = t; startDo() })
+            }
+            blocks = [];
+            function startDo() {
+                say("started separating gcode");
+                text = textFromFileLoaded;
+                let indStart = text.indexOf(END_OF_HEADER)
+                if (indStart < 0) {
+                    return say(`LST FILE missing \"${END_OF_HEADER}}\" string`)
+                }
+                indStart = indStart + END_OF_HEADER.length
+                let indEnd = text.indexOf(END_OF_PROGRAM)
+                if (indEnd < 0) {
+                    say(`LST FILE missing \"${END_OF_PROGRAM}\" string. Maybe Generated on old software`)
+                    indEnd = text.length;
+                } else {
+                    indEnd = indEnd
+                }
+
+                text = text.substring(indStart, indEnd)
+                say("finished separating gcode");
+
+                sections = interpretGCode(text)
+                blocks = groupSectionsInBlocks(sections)
+                EndTrim = blocks.length;
+                EndTrimManual.value = EndTrim
+                metablock1 = findRepeatingSequenceInBlocks(blocks)
+                if (!metablock1) {
+                    alert("could not find automatically the metablock it may mean that program 1st part and second part are inconsistent, TODO WIP:please select manually")
+                }
+                if (metablock1) {
+                    metablocks = splitByMetablock(metablock1, blocks)
+                    mbinconsistencies = checkMetablockConsistency(metablock1, metablocks)
+                }
+                blocksOriginal = JSON.parse(JSON.stringify(blocks))
+                // checkifRepeatsCorrectly(metablock1, blocks)
+
+
+
+
+                drawFromPoints(blocks)
+
+                str = getNumericCode_str_repr(sections)
+                if (window.fileToLoad) {
+                    console.log(window.fileToLoad.name)
+                }
+                // console.log(str)
+
+                return;
+
+            }
+
+            function setMetablockFromSelection() {
+                selectBlocks(0, 0)
+                metablock1 = blocks.slice(StartTrim, EndTrim)
                 metablocks = splitByMetablock(metablock1, blocks)
                 mbinconsistencies = checkMetablockConsistency(metablock1, metablocks)
+
             }
 
-            // checkifRepeatsCorrectly(metablock1, blocks)
-            drawFromPoints(sections)
-            str = getNumericCode_str_repr(sections)
-            if (window.fileToLoad) {
-                console.log(window.fileToLoad.name)
+            function prevBlockStartTrimBtnClick() {
+                StartTrimManual.value = parseInt(StartTrimManual.value) - 1
+                StartTrimSet()
+                selectBlocks(StartTrim, EndTrim)
             }
-            // console.log(str)
+            function nextBlockStartTrimBtnClick() {
 
-            return;
-        }
+                StartTrimManual.value = parseInt(StartTrimManual.value) + 1
+                StartTrimSet()
+                selectBlocks(StartTrim, EndTrim)
+            }
+            function prevBlockEndTrimBtnClick() {
+                EndTrimManual.value = parseInt(EndTrimManual.value) - 1
+                EndTrimSet()
+                selectBlocks(StartTrim, EndTrim)
+            }
+            function nextBlockEndTrimBtnClick() {
+                EndTrimManual.value = parseInt(EndTrimManual.value) + 1
+                EndTrimSet()
+                selectBlocks(StartTrim, EndTrim)
+            }
 
-    </script>
+            function StartTrimSet() {
+                StartTrim = parseInt(StartTrimManual.value)
+                selectBlocks(StartTrim, EndTrim)
+            }
+            function EndTrimSet() {
+                EndTrim = parseInt(EndTrimManual.value)
+                selectBlocks(StartTrim, EndTrim)
+            }
+
+            function selectBlocks(start, end) {
+                blocks.flat().forEach(s => {
+                    s.select = false;
+                })
+                selection = blocks.slice(start, end);
+
+                selection.flat().forEach(s => {
+                    s.select = true
+                })
+                drawFromPoints(blocks)
+            }
+
+            //noontz
+            //https://stackoverflow.com/questions/11112321/how-to-save-canvas-as-png-image/58652379#58652379
+            function DownloadCanvasAsImage() {
+                let downloadLink = document.createElement('a');
+
+                downloadLink.setAttribute('download', 'CanvasAsImage.png');
+                canvas.toBlob(function (blob) {
+                    let url = URL.createObjectURL(blob);
+                    downloadLink.setAttribute('href', url);
+                    downloadLink.click();
+                });
+            }
+
+
+        </script>
 
 
 
-    <script>
+        <script>
+            window.addEventListener('load', function () {
+
+                let obj = draggableCorner
+
+                var dragged = false
+                var mousedowned = false;
+                obj.addEventListener('mousedown', function () {
+                    mousedowned = true;
+                    dragged = false
+
+                }, true)
+                obj.addEventListener('mousemove', function (event) {
+
+                    if (mousedowned) {
+                        console.log(event)
+                        dragged = true
+                        moveControls(event)
+                    }
+                }, true)
+                window.addEventListener('mouseup', function () {
+                    mousedowned = false;
+                    if (dragged == true) {
+                        return
+                    }
+                    console.log("CLICK!! ")
+                }, true)
+
+                obj.addEventListener('mydragevent', function (event) {
+                    console.log("hello")
+                    event.preventDefault();
+                    moveControls(event);
+                }, true)
+
+                obj.addEventListener('touchmove', function (event) {
+                    event.preventDefault();
+                    moveControls(event);
+                }, false);
+
+                obj.addEventListener('', function (event) {
+                    event.preventDefault();
+                    moveControls(event);
+                }, false);
+
+                obj.addEventListener('touchcancel', function (event) {
+                    event.preventDefault();
+                    moveControls(event);
+                }, false);
+
+                // }
+
+            })
 
 
-    </script>
+            function moveControls(event) {
+                console.log("moveControls", event)
+
+
+
+                var touch = event.targetTouches ? event.targetTouches[0] : event;
+                if (touch) {
+                    // Place element where the finger is
+
+                    var sX = window.pageXOffset;
+                    var sY = window.pageYOffset;
+
+
+                    Ex = touch.pageX < 0 ? "200px" : touch.pageX - sX;
+                    Ey = touch.pageY < 0 ? (console.log("touch beyond screen!:" + touch.pageY), '1000px') : touch.pageY - sY;
+                    Ex < 100 ? Ex = 100 : 0;
+                    Ey < 100 ? Ey = 100 : 0;
+
+
+
+                    Tstyle = event.target.parentElement.style;
+                    TzoomF = (Tstyle.zoom.replace("%", "") / 100).toFixed(2);
+
+
+
+                    eZ.ctrls.cX = Tstyle.left = (Ex / TzoomF).toFixed(2) + 'px';
+                    eZ.ctrls.cY = Tstyle.top = (Ey / TzoomF).toFixed(2) + 'px';
+
+                    // console.log();
+
+                    console.log([Tstyle.zoom, TzoomF, Ex, eZ.ctrls.cX]);
+
+
+
+                    console.log("↹:\n" + eZ.ctrls.cX + "\n" + eZ.ctrls.cY)
+
+                    //event.target.innerText="↹:\n"+ctrls.cX+"\n"+ctrls.cY;
+                } else {
+                    alert(touch);
+                }
+
+            }
+            var eZ = {
+                ctrls: {
+                    cX: 0,
+                    cY: 0,
+                }
+            }
+
+        </script>
 
 
 </body>

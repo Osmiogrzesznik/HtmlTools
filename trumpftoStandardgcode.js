@@ -36,9 +36,10 @@ function rep(i, func) {
 // CIP can be simplified into straight lines
 const colorON = 'rgba(0,0,0,1)';
 const colorOFF = 'rgba(100,100,100,0.3)';
-const colorMarkEvap = 'rgba(0,255,0,1)';
+const colorMarkEvap = 'rgba(0,0,255,.7)';
+const colorSelected = 'rgba(0,255,0,1)';
 
-const colorUnknownCMD = 'rgba(0,0,155,1)';
+const colorUnknownCMD = 'rgba(160,0,175,1)';
 const colorUnknownCMDSemi = 'rgba(0,0,155,0.5)';
 const GM_EVAP = 5
 const GM_CUT = 1
@@ -130,7 +131,7 @@ curY = 0
 curN = null;
 points = []
 var ctx_scl = 4;
-var ctx_lw = 0.5;
+var currentLineWidth = 0.5;
 
 
 function getBetween(gcln, cmd1, cmd2, curV) {
@@ -623,7 +624,9 @@ function calcBoundBox(sections) {
 }
 
 
-function drawFromPoints(sections) {
+function drawFromPoints(inputsections) {
+
+    sections = inputsections[0].N ? inputsections : inputsections.flat()
 
     bbox = calcBoundBox(sections)
     console.log(bbox)
@@ -633,11 +636,11 @@ function drawFromPoints(sections) {
         if (s.typ in NOT_OFFSETABLE_CMDS) return s;
         nups = {}
         olps = s.params
-        nups.x = (olps.x - bbox.minX + (ctx_lw)) * 1;
-        nups.y = (olps.y - bbox.maxY - (ctx_lw)) * -1;
+        nups.x = (olps.x - bbox.minX + (currentLineWidth)) * 1;
+        nups.y = (olps.y - bbox.maxY - (currentLineWidth)) * -1;
         if (s.typ === CIP) { // TODO TC_CIRCLE.typ
-            nups.xi = (olps.xi - bbox.minX + (ctx_lw)) * 1;
-            nups.yj = (olps.yj - bbox.maxY - (ctx_lw)) * -1;
+            nups.xi = (olps.xi - bbox.minX + (currentLineWidth)) * 1;
+            nups.yj = (olps.yj - bbox.maxY - (currentLineWidth)) * -1;
         }
         nus = Object.assign({}, s)
         nus.params = nups;
@@ -645,14 +648,14 @@ function drawFromPoints(sections) {
     })
     getNumericCode_str_repr(offsSections);
 
-    canvas.width = (bbox.rangeX * ctx_scl) + (ctx_lw * ctx_scl * 2);
-    canvas.height = (bbox.rangeY * ctx_scl) + (ctx_lw * ctx_scl * 2);
+    canvas.width = (bbox.rangeX * ctx_scl) + (currentLineWidth * ctx_scl * 2);
+    canvas.height = (bbox.rangeY * ctx_scl) + (currentLineWidth * ctx_scl * 2);
 
     ctx.scale(ctx_scl, ctx_scl)
 
-
+    currentLineWidth
     ctx.setLineDash([2, 2])
-    ctx.lineWidth = ctx_lw;
+    ctx.lineWidth = currentLineWidth;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = "6px sans-serif";
@@ -744,7 +747,7 @@ function drawSection(section) {
     if (typ in DO_NOT_DRAW) {
         if (typ = BLOCK_START) {
             ctx.font = "3px sans-serif";
-            ctx.fillStyle = s.bad ? s.color : GmodalState ? colorUnknownCMD : colorUnknownCMDSemi;
+            ctx.fillStyle = s.select ? colorSelected : s.bad ? s.color : GmodalState ? colorUnknownCMD : colorUnknownCMDSemi;
             if (s.bad && s.tags) {
                 ctx.fillText(s.tags.order + "", penX, penY);
             }
@@ -755,49 +758,57 @@ function drawSection(section) {
         return
     }
 
-    //do somthing messed up Gmodal z typ
+
     if (typ == G_) {
         // console.log(s.N)
-        ctx.strokeStyle = s.bad ? s.color : getStrokeStyle(s.onoffevap, s.typ);
+        ctx.lineWidth = s.select ? currentLineWidth * 2 : currentLineWidth;;
+        ctx.strokeStyle = s.select ? colorSelected : s.bad ? s.color : getStrokeStyle(s.onoffevap, s.typ);
         ctx.setLineDash(getDashStyle(s.onoffevap, s.typ))
         ctx.beginPath();
         ctx.moveTo(penX, penY);
         ctx.lineTo(x, y);
+        ctx.lineWidth = s.select ? currentLineWidth * 2 : currentLineWidth;;
         ctx.stroke();
         penX = x;
         penY = y;
     } else if (typ == TC_RECT2) {
         ctx.setLineDash([1, 2, 0.5])
-        ctx.strokeStyle = s.bad ? s.color : getStrokeStyle(s.onoffevap)
-        ctx.fillStyle = s.bad ? s.color : GmodalState ? colorUnknownCMD : colorUnknownCMDSemi;
+        ctx.lineWidth = s.select ? currentLineWidth * 2 : currentLineWidth;;
+        ctx.strokeStyle = s.select ? colorSelected : s.bad ? s.color : getStrokeStyle(s.onoffevap)
+        ctx.fillStyle = s.select ? colorSelected : s.bad ? s.color : GmodalState ? colorUnknownCMD : colorUnknownCMDSemi;
 
         // ctx.font = "10px sans-serif";
         // ctx.fillText("+", penX, penY);
         ctx.font = "3px sans-serif";
-        ctx.fillText("TC_RECT2-WIP", penX, penY + ctx_lw * 7);
+        ctx.fillText("TC_RECT2-WIP", penX, penY + currentLineWidth * 7);
         // console.log(s.onoffevap)
-        ctx.strokeStyle = s.bad ? s.color : getStrokeStyle(s.onoffevap, s.typ);
+        ctx.lineWidth = s.select ? currentLineWidth * 2 : currentLineWidth;;
+        ctx.strokeStyle = s.select ? colorSelected : s.bad ? s.color : getStrokeStyle(s.onoffevap, s.typ);
         let cx = penX
         let cy = penY
 
         ctx.setLineDash(getDashStyle(s.onoffevap, s.typ))
         ctx.beginPath();
         ctx.rect(penX - params.sideX, penY - params.sideY, params.sideX, params.sideY);
+        ctx.lineWidth = s.select ? currentLineWidth * 2 : currentLineWidth;;
         ctx.stroke();
 
     } else if (typ == TC_CIRC2) {
         // console.log(s.onoffevap)
-        ctx.strokeStyle = s.bad ? s.color : getStrokeStyle(s.onoffevap, s.typ);
+        ctx.lineWidth = s.select ? currentLineWidth * 2 : currentLineWidth;;
+        ctx.strokeStyle = s.select ? colorSelected : s.bad ? s.color : getStrokeStyle(s.onoffevap, s.typ);
         let cx = penX
         let cy = penY
         let r = params.r
         ctx.setLineDash(getDashStyle(s.onoffevap, s.typ))
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, 360, false);
+        ctx.lineWidth = s.select ? currentLineWidth * 2 : currentLineWidth;;
         ctx.stroke();
 
     } else if (typ == CIP) {
-        ctx.strokeStyle = s.bad ? s.color : getStrokeStyle(s.onoffevap, s.typ);
+        ctx.lineWidth = s.select ? currentLineWidth * 2 : currentLineWidth;;
+        ctx.strokeStyle = s.select ? colorSelected : s.bad ? s.color : getStrokeStyle(s.onoffevap, s.typ);
         // console.log(s)
         ctx.setLineDash(getDashStyle(s.onoffevap, s.typ))
         let xi = params.xi
@@ -813,18 +824,20 @@ function drawSection(section) {
         const ang2 = Math.atan2(y - circle.y, x - circle.x);
         ctx.beginPath();
         ctx.arc(circle.x, circle.y, circle.radius, ang1, ang2, circle.CCW);
+        ctx.lineWidth = s.select ? currentLineWidth * 2 : currentLineWidth;;
         ctx.stroke();
         penX = x;
         penY = y;
     } else if (typ == TC_ || typ in NOT_DRAW_IMPLEMENTED) {
         ctx.setLineDash([1, 2, 0.5])
-        ctx.strokeStyle = s.bad ? s.color : getStrokeStyle(s.onoffevap)
-        ctx.fillStyle = s.bad ? s.color : GmodalState ? colorUnknownCMD : colorUnknownCMDSemi;
+        ctx.lineWidth = s.select ? currentLineWidth * 2 : currentLineWidth;;
+        ctx.strokeStyle = s.select ? colorSelected : s.bad ? s.color : getStrokeStyle(s.onoffevap)
+        ctx.fillStyle = s.select ? colorSelected : s.bad ? s.color : GmodalState ? colorUnknownCMD : colorUnknownCMDSemi;
 
         ctx.font = "10px sans-serif";
         ctx.fillText("+", penX, penY);
         ctx.font = "3px sans-serif";
-        ctx.fillText(s.params.cmd, penX, penY + ctx_lw * 7);
+        ctx.fillText(s.params.cmd, penX, penY + currentLineWidth * 7);
 
         return
     }
