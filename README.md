@@ -1,5 +1,5 @@
 demo running live on:
-[graphical](https://osmiogrzesznik.github.io/HtmlTools/inconsistencyCheck.html)
+[graphical interface now](https://osmiogrzesznik.github.io/HtmlTools/inconsistencyCheck.html)
 ##What it does:
 
 prints out the trumpf g-code on canvas (WIP) marks inconsitencies
