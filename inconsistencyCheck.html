@@ -5,6 +5,8 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <script src="sweetalert2.all.min.js"></script>
+    <link rel="stylesheet" href="sweetalert2.min.css">
 </head>
 <style>
     #tin {
@@ -13,14 +15,17 @@
 
     canvas {
         border: 1px solid red;
+        transform: scale(-1);
+        z-index: -1;
     }
 
     #controls {
         position: fixed;
-        top: 40px;
-        left: 40px;
-        background-color: rgba(150, 200, 255, .2);
-
+        bottom: 0vh;
+        right: 0vw;
+        background-color: rgba(190, 230, 255, .9);
+        transform: scale(1);
+        z-index: 999;
     }
 
 
@@ -40,12 +45,20 @@
     }
 
     #draggableCorner {
+        position: absolute;
         font-size: 3em;
         padding: 4px;
         text-align: center;
-        background-color: rgba(200, 255, 255, 0.3);
+        background-color: rgba(190, 230, 255, .9);
         left: -40px;
         top: -40px;
+    }
+
+    #simspeed,
+    #toleranceINP,
+    #StartTrimManual,
+    #EndTrimManual {
+        width: 5em;
     }
 </style>
 
@@ -53,31 +66,59 @@
 
     <div id="controls" style="zoom:100%;" class="controls slidersPanel box">
         <div class="draggable box" id="draggableCorner">↹dragme</div>
+        <h4>--------TIP:hover over a control for explanation</h4>
         <fieldset>
             <legend>Load new File/ Export image etc.</legend>
-            <input type="file" id=fileInput onchange="loadFileAsText()">
-            <button id="downloadAsImageBtn" onclick="DownloadCanvasAsImage()">Save Image</button>
-            <button id="downloadReportsBtn" onclick="DownloadReports()">Save Reports</button>
+            <input title="select any file that supports Trumpf style blocks and syntax." type="file" id=fileInput
+                onchange="loadFileAsText()">
+            <button title="saves png to file" id="downloadAsImageBtn" onclick="DownloadCanvasAsImage()">Save
+                Image</button>
+            <button title="saves all analysis to txt file" id="downloadReportsBtn" onclick="DownloadReports()">Save
+                Reports</button>
 
         </fieldset>
         <fieldset>
+            <legend>Edit</legend>
+            <button onclick="reverseAllBlocks(1)">reverse blocks</button>
+            <button onclick="MakeRowUI()">make Row in Y</button>
+            <button onclick=" DownloadGcode()">Save Gcode</button>
+            <button onclick=" deleteSelectedBlocksRange()">deleteSelectedBlocksRange</button>
+
+        </fieldset>
+
+        <fieldset>
+            <legend>Simulation </legend>
+            draw component every<input id="simspeed" value="1" onchange="set_simspeed()">ms
+            <button onclick="simulate(1)">simulate lines</button>
+            <button onclick="simulate(2)">simulate blocks</button>
+            <br>Block:<span id="aaaBNO">--</span><br>Line:<span id="aaaNNO">--</span>
+            <br><button id="SIMST" onclick="simulate(3)">stop</button>
+        </fieldset>
+        <fieldset>
             <legend>MetaBlock Selection -- Currently <span id="trimLengthSpan">0</span> Blocks selected </legend>
+            <legend>Block Selection start &#x02912</legend>
+
+            <button id="prevBlockStartTrimFBtn" onclick="prevBlockStartTrimBtnClick()">- &#x02912</button>
+            <input id="StartTrimManual" value="0" onchange="set_StartTrim()">
+            <button id="nextBlockStartTrimBtn" onclick="nextBlockStartTrimBtnClick()">+ &#x02912</button>
+        </fieldset>
+        <fieldset>
+            <legend>Block Selection end &#x02913</legend>
+
+            <button id="prevBlockEndTrimFBtn" onclick="prevBlockEndTrimBtnClick()">- &#x02913</button>
+            <input id="EndTrimManual" value="0" onchange="set_EndTrim()">
+            <button id="nextBlockEndTrimBtn" onclick="nextBlockEndTrimBtnClick()">+ &#x02913</button>
+        </fieldset>
+        <fieldset>
+            <button title="try to find and select blocks
+             that have the largest bounding rectangle area" onclick="findProfiles()">find profiles</button>
             <button onclick="setMetablockFromSelection()">Set Metablock and check</button>
-            <fieldset>
-                <legend>Start Of selection</legend>
-
-                <button id="prevBlockStartTrimFBtn" onclick="prevBlockStartTrimBtnClick()">Start Trim Prev
-                    Block</button>
-                <input id="StartTrimManual" value="0" onchange="StartTrimSet()">
-                <button id="nextBlockStartTrimBtn" onclick="nextBlockStartTrimBtnClick()">Start Trim Next Block</button>
-            </fieldset>
-            <fieldset>
-                <legend>End Of selection</legend>
-
-                <button id="prevBlockEndTrimFBtn" onclick="prevBlockEndTrimBtnClick()">End Trim Prev Block</button>
-                <input id="EndTrimManual" value="0" onchange="EndTrimSet()">
-                <button id="nextBlockEndTrimBtn" onclick="nextBlockEndTrimBtnClick()">End Trim Next Block</button>
-            </fieldset>
+            <button onclick="AutoMetablock1()">AUTO Algorithm 1</button>
+            <button onclick="AutoMetablock2()">AUTO Algorithm 2</button>
+            <br>tolerance for algorithm comparisons<input id="toleranceINP" value="0.01" onchange="set_tolerance()">mm
+            <button title="for last selected , selects all similar 
+            (based on bounding box)" onclick="selectSimilarBlocks(tolerance)">select similar to selected
+                Tolerance</button>
         </fieldset>
         <pre id=timetook></pre>
         <pre id=tout></pre>
@@ -88,7 +129,8 @@
             time_Start = 0;
             textFromFileLoaded = ''
             fnm = '';
-
+            global_points = []
+            defOffsetVector = { x: 10, y: 10 };
             /* my tools to make development on mobile phone easier*/
             window.onerror = (...x) => {
                 x[2] = x[2] - 8;
@@ -99,7 +141,7 @@
 
 
             sa = x => say(x);
-            say(2)
+            say(+2)
 
             reportsAr = []
             report = (...x) => reportsAr.push(x.join('') + "\n")
@@ -148,12 +190,25 @@
             sections = [];
             StartTrim = 0;
             EndTrim = 0;
+            blockselection = null;
+            global_simulation_repeater = null;
+            tolerance = 1;
+            sheetZeroLaser1 = { x: 440, y: 1920 }
+            sheetZeroLaser2 = { x: 440, y: 1460 }
 
+            toleranceINP.value = tolerance;
+            lastSelected = null;
             function DownloadReports() {
                 str = reportsAr.join('')
                 saveText(str, fnm + "blankEZreport.txt")
             }
 
+            function DownloadGcode() {
+                blocks = RenumberProgram(blocks)
+                outputGcodeStr = outputGcode(blocks)
+                str = [global_LST_headers, outputGcodeStr, global_LST_footers].join("\n")
+                saveText(str, "MOD" + fnm + "MOD.txt")
+            }
 
 
             function loadFileAsText() {
@@ -174,15 +229,23 @@
             }
 
             window.onload = _ => {
-                // fetch("PRICCP0040001.LST")
-                // fetch("P83931_NONEQUIP003_LH21.LST")
-                // fetch("P83932_SINGLEQUIP003_RH22.LST")
-                // fetch("PRICCP0059001.LST")
-                // fetch("PRICCP0027001.LST")
-                fnm = "PRICCP0076001.LST"
+
+                say(3);
+                fnm =
+                    // "one.txt"
+                    // "stencils.LST"
+                    // "MODstencils.LSTMOD.txt"
+                    // "STENCILScorrectorder.LST"
+                    // "PRICCP0040001.LST"
+                    // "MODPRICCP0040001.LSTMOD.txt"
+                    //"P83931_NONEQUIP003_LH21.LST"
+                    //"P83932_SINGLEQUIP003_RH22.LST"
+                    "PRICCP0059001.LST"
+                //"PRICCP0027001.LST"
+                //"PRICCP0076001.LST"
                 fetch(fnm)
                     .then(r => r.text())
-                    .then(t => { textFromFileLoaded = t; startDo() })
+                    .then(t => { say(4); textFromFileLoaded = t; startDo() })
             }
             blocks = [];
             function startDo() {
@@ -200,94 +263,334 @@
                 } else {
                     indEnd = indEnd
                 }
+                global_LST_headers = text.substring(0, indStart)
+                global_LST_footers = text.substring(indEnd, text.length)
 
                 text = text.substring(indStart, indEnd)
                 say("finished separating gcode");
-
                 sections = interpretGCode(text)
                 blocks = groupSectionsInBlocks(sections)
                 EndTrim = blocks.length;
                 EndTrimManual.value = EndTrim
-                metablock1 = findRepeatingSequenceInBlocks(blocks)
-                if (!metablock1) {
-                    alert("could not find automatically the metablock it may mean that program 1st part and second part are inconsistent, TODO WIP:please select manually")
-                }
-                if (metablock1) {
-                    metablocks = splitByMetablock(metablock1, blocks)
-                    mbinconsistencies = checkMetablockConsistency(metablock1, metablocks)
-                }
+                AutoMetablock2()
+                // drawFromPoints(blocks, true)
+
+                // console.log(profiles)
+                // blocks.flat().map(s => say(s))
+                // sections.filter(s => !(s.typ in NOT_OFFSETABLE_CMDS)).map(s => say(s.gc))
+                // blocks[profiles.i] = profiles.block
+
+                drawFromBlocksSIM(blocks, false)
+                return;
+
+
                 blocksOriginal = JSON.parse(JSON.stringify(blocks))
                 // checkifRepeatsCorrectly(metablock1, blocks)
 
 
 
 
-                drawFromPoints(blocks)
 
                 str = getNumericCode_str_repr(sections)
                 if (window.fileToLoad) {
                     console.log(window.fileToLoad.name)
                 }
+
                 // console.log(str)
 
                 return;
 
             }
 
+            function getSelectionBlocks() {
+                let selectedBlocks = [];
+                blocks.forEach(b, i => {
+                    allscsselected = b.map(s => s.select).every(x => x)
+                    if (allscsselected) {
+                        block.select = true
+                        selectBlocks.push(block)
+                    }
+
+                })
+                return selectBlocks;
+            }
+
+            function getSelectionSections() {
+
+                return sections.filter(s => s.select)
+            }
+
+            function AutoMetablock1() {
+                metablock1 = findRepeatingSequenceInBlocks(blocks)
+                if (!metablock1) {
+                    msg = ("SORRY, ALGORITHM 1 (comparing two halves of block arrays) FAILED AT FINDING REPEATING SEQUENCE:\n needs at least two exact copies at the start of the program. could not find automatically the metablock \n\nit may mean that program 1st part and second part are inconsistent,\n please try other algorithm or select manually")
+
+                    return swal.fire(msg)
+                }
+                Block_select_set(metablock1, true)
+            }
+
+
+            function AutoMetablock2() {
+                profiles = findBiggestBboxesAndTheirIndices(blocks)//findRepeatingSequenceInBlocks(blocks)
+                // Block_select_set(blocks[profiles.i], true)
+                if (!profiles) {
+
+                    msg = ("could not find automatically the metablock it may mean that program 1st part and second part are inconsistent, TODO WIP:please select manually")
+                    say(msg)
+                    return swal.fire(msg)
+                }
+                if (profiles) {
+                    //TODO do not select yet 
+                    say(blocks)
+                    say(profiles)
+                    let Bs = profiles.map(x => x.block)
+                    say("Bs:", Bs)
+                    // metaBlock_select_set(Bs, true)
+                    // drawFromPoints(blocks)
+                    //swal.fire("these are the largest blocks(probably profiles):" + Bs)
+                    /*
+                    metablocks = splitByMetablock(metablock1, blocks)
+                    mbinconsistencies = checkMetablockConsistency(metablock1, metablocks)
+                    */
+                }
+            }
+
+
+
             function setMetablockFromSelection() {
                 selectBlocks(0, 0)
                 metablock1 = blocks.slice(StartTrim, EndTrim)
                 metablocks = splitByMetablock(metablock1, blocks)
                 mbinconsistencies = checkMetablockConsistency(metablock1, metablocks)
-
+                drawFromPoints(blocks)
             }
 
             function prevBlockStartTrimBtnClick() {
                 StartTrimManual.value = parseInt(StartTrimManual.value) - 1
-                StartTrimSet()
-                selectBlocks(StartTrim, EndTrim)
+                set_StartTrim()
+
             }
+
             function nextBlockStartTrimBtnClick() {
 
                 StartTrimManual.value = parseInt(StartTrimManual.value) + 1
-                StartTrimSet()
-                selectBlocks(StartTrim, EndTrim)
+                set_StartTrim()
+
             }
             function prevBlockEndTrimBtnClick() {
                 EndTrimManual.value = parseInt(EndTrimManual.value) - 1
-                EndTrimSet()
-                selectBlocks(StartTrim, EndTrim)
+                set_EndTrim()
+
             }
             function nextBlockEndTrimBtnClick() {
                 EndTrimManual.value = parseInt(EndTrimManual.value) + 1
-                EndTrimSet()
-                selectBlocks(StartTrim, EndTrim)
+                set_EndTrim()
+
             }
 
-            function StartTrimSet() {
+            function simulate(what) {
+                if (what === 3) {
+
+                    global_simulation_repeater.running = !global_simulation_repeater.running
+                    if (global_simulation_repeater.running) global_simulation_repeater.repeat()
+                    SIMST.innerText = global_simulation_repeater.running ? 'stop' : 'start';
+                } else if (global_simulation_repeater !== null) {
+                    global_simulation_repeater.stop();
+                    global_simulation_repeater = null;
+                }
+                if (what === 2) {
+                    global_simulation_interval = global_simulation_interval < 20 ? 20 : global_simulation_interval;
+                    simspeed.value = global_simulation_interval
+                    drawFromBlocksSIM(blocks, false)
+
+                } else if (what === 1) {
+                    global_simulation_interval = global_simulation_interval > 2000 ? 2000 : global_simulation_interval;
+                    simspeed.value = global_simulation_interval
+                    drawFromSectionsSIM(blocks, false)
+                }
+
+            }
+
+            function UIUpdate() {
+
+                EndTrimManual.value = EndTrim
+                StartTrimManual.value = StartTrim
+                return;
+            }
+
+            function set_StartTrim() {
                 StartTrim = parseInt(StartTrimManual.value)
                 selectBlocks(StartTrim, EndTrim)
             }
-            function EndTrimSet() {
+            function set_EndTrim() {
                 EndTrim = parseInt(EndTrimManual.value)
                 selectBlocks(StartTrim, EndTrim)
+            }
+
+            function set_tolerance() {
+                tolerance = parseFloat(toleranceINP.value)
+
             }
 
             function selectBlocks(start, end) {
                 blocks.flat().forEach(s => {
                     s.select = false;
                 })
-                selection = blocks.slice(start, end);
-
-                selection.flat().forEach(s => {
+                blockselection = blocks.slice(start, end);
+                blockselection.forEach(b => { b.select = true })
+                blockselection.flat().forEach(s => {
                     s.select = true
                 })
+                console.log(start, end)
+
                 drawFromPoints(blocks)
             }
+
+            function set_simspeed() {
+                global_simulation_interval = parseInt(simspeed.value || 1)
+            }
+
+            function deleteBlockByBlockNumbers(B_nos) {
+                let toDelete = blocks.filter(b => B_nos.includes(b._B))
+                deleteBlocks(blocks, toDelete)
+            }
+
+            function deleteSelectedBlocksRange() {
+                say(blockselection)
+                let si = blocks.indexOf(blockselection[0])
+                let ei = blocks.indexOf(blockselection[blockselection.length - 1])
+                blocks.splice(si, ei - si + 1)
+                drawFromPoints(blocks)
+            }
+
+            function deleteBlocks(toDelete) {
+                removeItems(blocks, toDelete)
+                drawFromPoints(blocks)
+            }
+
+
+            function reverseAllBlocks() {
+                blocks = ReverseAllProgramBlocksAndRenumberEverything(blocks)
+            }
+
+            function getBlockByBNumber(B_no) {
+                return blocks.filter(b => B_no === b._B)[0]
+            }
+
+            function makeOptions() {
+                return {
+                    start: 0,
+                    end: blocks.length,
+                    "before copied": null,
+                    "after copied": null,
+                };
+            }
+
+            //TODO make B_to_I I_to_B updated dicts or funcs
+
+            function copymovetranslateBlocksWhere(blocksToCopyMove, where, offsetVector = defOffsetVector) {
+                let wh = where;
+                let nubs = blocksToCopyMove.map(b => {
+                    return translateBlockCopy(b, offsetVector)
+                })
+                let wi;
+                if (isNaN(parseInt(where))) {
+                    wi = wh === "end" ? 0 :
+                        wh === "start" ? blocks.length :
+                            wh === "before copied" ? (blocks.indexOf(blocksToCopyMove[0])) :
+                                wh === "after copied" ? (blocks.indexOf(blocksToCopyMove[blocksToCopyMove.length - 1])) + 1 :
+                                    blocks.length;
+                }
+
+                blocks.splice(wi, 0, ...nubs);
+            }
+
+            function RepeatProginAxis(xory, numberOfTimes = 1, dist = 5) {
+
+                let toRepeat = blocks.slice(0, blocks.length)
+                let bbx = calcBoundBox(blocks.flat())
+
+                ov = { x: bbx.rangeX, y: bbx.rangeY }
+                let ov2;
+                if (xory.toLowerCase() === "x") {
+                    ov2 = { x: ov.x + dist, y: 0 }
+                } else if (xory.toLowerCase() === "y") {
+                    ov2 = { x: 0, y: -(ov.y + dist) }
+                }
+
+                for (let r = 1; r <= numberOfTimes; r++) {
+                    ops.copymovetranslateBlocksWhere(toRepeat, "end", { x: ov2.x * r, y: ov2.y * r })
+
+                }
+                drawFromPoints(blocks)
+            }
+
+            function HowManyWillFitY(maxY = 1250, dist = 5) {
+                let bbx = calcBoundBox(blocks.flat())
+                let nuzero = bbx.maxY - dist // 454.93
+                let repSize = bbx.rangeY + dist
+                let howManyFit = Math.floor(maxY / repSize)
+                return howManyFit
+            }
+
+            function MakeRow(maxY, dist = 5) {
+                let hm = HowManyWillFitY(maxY, dist)
+                RepeatProginAxis("y", hm, dist);
+            }
+
+            function MakeRowUI() {
+                let maxY = prompt("enter sheet Y size in mm", "1250")
+                let dist = prompt("enter sheet Y size in mm", "5")
+                if (!maxY) return;
+                if (!dist) return;
+                maxY = parseInt(maxY)
+                dist = parseInt(dist)
+                if (isNaN(maxY)) return;
+                if (isNaN(dist)) return;
+                MakeRow(maxY, dist)
+            }
+
+            function scaleProgtoFit(maxX, maxY) {
+                throw Error("unimplemented")
+                let bbx = calcBoundBox(blocks.flat())
+                let howbigisOnePart = bbx.rangeY;
+                // let normalised = howbigisOnePart
+                // let scaledmax = howbigisOnePart * 0.5
+                // let scaledbbox = howbigisOnePart
+            }
+
+
+
+
+            function moveBlocksBeforeBlock() {
+
+            }
+
+            function selectSimilarBlocks(tol) {
+                //TODO NOW
+
+            }
+
+            function selectEverythingBetweenTwoBlocks(tol) {
+                //TODO NOW for last selected , selects all similar
+
+            }
+
+            function selectEverythingBetweenSelectedAndLastSimilarBlock(tol) {
+                //TODO NOW only one selected block has to be                 
+
+            }
+
+
+            const ops = { RepeatProginAxis, deleteSelectedBlocksRange, reverseAllBlocks, deleteBlocks, deleteBlockByBlockNumbers, selectBlocks, copymovetranslateBlocksWhere, getBlockByBNumber }
+
 
             //noontz
             //https://stackoverflow.com/questions/11112321/how-to-save-canvas-as-png-image/58652379#58652379
             function DownloadCanvasAsImage() {
+                curBGindex = 1;
+                drawFromPoints(blocks)
                 let downloadLink = document.createElement('a');
 
                 downloadLink.setAttribute('download', fnm + 'blankEZ.png');
@@ -298,6 +601,11 @@
                 });
             }
 
+            function toggleCanvasTransparency() {
+                curBGindex = (!curBGindex & !curBGindex)
+                curCanvasBG = BGcolors[curBGindex]
+                return curBGindex;
+            }
 
         </script>
 
