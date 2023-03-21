@@ -66,7 +66,7 @@
 
     <div id="controls" style="zoom:100%;" class="controls slidersPanel box">
         <div class="draggable box" id="draggableCorner">↹dragme</div>
-        <h4>--------TIP:hover over a control for explanation</h4>
+        <h4> - - - -Program:<span id=progfnm>no program loaded</span></h4>
         <fieldset>
             <legend>Load new File/ Export image etc.</legend>
             <input title="select any file that supports Trumpf style blocks and syntax." type="file" id=fileInput
@@ -81,7 +81,10 @@
             <legend>Edit</legend>
             <button onclick="reverseAllBlocks(1)">reverse blocks</button>
             <button onclick="MakeRowUI()">make Row in Y</button>
-            <button onclick=" DownloadGcode()">Save Gcode</button>
+            <button title="1.renumbers blocks (so numbering follows their order of execution)
+                2. renumbers lines 
+                3. modifies LST headers to remain consistent with the Trumpf spec" onclick=" DownloadGcode()">Save
+                Gcode</button>
             <button onclick=" deleteSelectedBlocksRange()">deleteSelectedBlocksRange</button>
 
         </fieldset>
@@ -91,621 +94,727 @@
             draw component every<input id="simspeed" value="1" onchange="set_simspeed()">ms
             <button onclick="simulate(1)">simulate lines</button>
             <button onclick="simulate(2)">simulate blocks</button>
-            <br>Block:<span id="aaaBNO">--</span><br>Line:<span id="aaaNNO">--</span>
+            <br>Block:<span id="aaaBNO">__</span><br>Line:<span id="aaaNNO">--</span>
             <br><button id="SIMST" onclick="simulate(3)">stop</button>
         </fieldset>
         <fieldset>
-            <legend>MetaBlock Selection -- Currently <span id="trimLengthSpan">0</span> Blocks selected </legend>
-            <legend>Block Selection start &#x02912</legend>
+            <legend>Block Selection </legend>
+            Currently <span id="trimLengthSpan">0</span> Blocks selected
 
-            <button id="prevBlockStartTrimFBtn" onclick="prevBlockStartTrimBtnClick()">- &#x02912</button>
-            <input id="StartTrimManual" value="0" onchange="set_StartTrim()">
-            <button id="nextBlockStartTrimBtn" onclick="nextBlockStartTrimBtnClick()">+ &#x02912</button>
-        </fieldset>
-        <fieldset>
-            <legend>Block Selection end &#x02913</legend>
+            <fieldset>
+                <legend>Block Selection start &#x02912</legend>
 
-            <button id="prevBlockEndTrimFBtn" onclick="prevBlockEndTrimBtnClick()">- &#x02913</button>
-            <input id="EndTrimManual" value="0" onchange="set_EndTrim()">
-            <button id="nextBlockEndTrimBtn" onclick="nextBlockEndTrimBtnClick()">+ &#x02913</button>
-        </fieldset>
-        <fieldset>
-            <button title="try to find and select blocks
+                <button id="prevBlockStartTrimFBtn" onclick="prevBlockStartTrimBtnClick()">- &#x02912</button>
+                <input id="StartTrimManual" value="1" onchange="set_StartTrim()">
+                <button id="nextBlockStartTrimBtn" onclick="nextBlockStartTrimBtnClick()">+ &#x02912</button>
+                Original Block No: <span id="StartBlockspan">__</span>
+            </fieldset>
+            <fieldset>
+                <legend>Block Selection end &#x02913</legend>
+
+                <button id="prevBlockEndTrimFBtn" onclick="prevBlockEndTrimBtnClick()">- &#x02913</button>
+                <input id="EndTrimManual" value="0" onchange="set_EndTrim()">
+
+                <button id="nextBlockEndTrimBtn" onclick="nextBlockEndTrimBtnClick()">+ &#x02913</button>
+                Original Block No:<span id="EndBlockspan">__</span>
+            </fieldset>
+            <fieldset>
+                <button title="try to find and select blocks
              that have the largest bounding rectangle area" onclick="findProfiles()">find profiles</button>
-            <button onclick="setMetablockFromSelection()">Set Metablock and check</button>
-            <button onclick="AutoMetablock1()">AUTO Algorithm 1</button>
-            <button onclick="AutoMetablock2()">AUTO Algorithm 2</button>
-            <br>tolerance for algorithm comparisons<input id="toleranceINP" value="0.01" onchange="set_tolerance()">mm
-            <button title="for last selected , selects all similar 
+                <button onclick="setMetablockFromSelection()">Set Metablock and check</button>
+                <button onclick="AutoMetablock1()">AUTO Algorithm 1</button>
+                <button onclick="AutoMetablock2()">AUTO Algorithm 2</button>
+                <br>tolerance for algorithm comparisons<input id="toleranceINP" value="0.01"
+                    onchange="set_tolerance()">mm
+                <button title="for last selected , selects all similar 
             (based on bounding box)" onclick="selectSimilarBlocks(tolerance)">select similar to selected
-                Tolerance</button>
-        </fieldset>
-        <pre id=timetook></pre>
-        <pre id=tout></pre>
-        <pre id="tin" style="display:none">
+                    Tolerance</button>
+            </fieldset>
+            <pre id=timetook></pre>
+            <pre id=tout></pre>
+            <pre id="tin" style="display:none">
         </div>
 </pre>
-        <script>
-            time_Start = 0;
-            textFromFileLoaded = ''
-            fnm = '';
-            global_points = []
-            defOffsetVector = { x: 10, y: 10 };
-            /* my tools to make development on mobile phone easier*/
-            window.onerror = (...x) => {
-                x[2] = x[2] - 8;
-                console.error(x);
-            }
-
-            say = console.log
-
-
-            sa = x => say(x);
-            say(+2)
-
-            reportsAr = []
-            report = (...x) => reportsAr.push(x.join('') + "\n")
-
-            p = x => tout.innerText += x
-            p2 = x => tout.innerText = x
-            pl = x => p(x + "\n")
-            as = (...x) => x.join('')
-            ap = (...x) => p(as(...x))
-            apl = (...x) => pl(as(...x))
-
-            function rep(i, func) {
-                if (func()) {
-                    setTimeout(x => rep(func), 100)
+            <script>
+                time_Start = 0;
+                textFromFileLoaded = ''
+                fnm = '';
+                global_points = []
+                defOffsetVector = { x: 10, y: 10 };
+                /* my tools to make development on mobile phone easier*/
+                window.onerror = (...x) => {
+                    x[2] = x[2] - 8;
+                    console.error(x);
                 }
 
-            }
+                say = console.log
 
 
+                sa = x => say(x);
+                say(+2)
 
+                reportsAr = []
+                report = (...x) => reportsAr.push(x.join('') + "\n")
 
+                p = x => tout.innerText += x
+                p2 = x => tout.innerText = x
+                pl = x => p(x + "\n")
+                as = (...x) => x.join('')
+                ap = (...x) => p(as(...x))
+                apl = (...x) => pl(as(...x))
 
-            function saveText(text, filename) {
-                var a = document.createElement('a');
-                a.setAttribute('href', 'data:text/plain;charset=utf-u,' + encodeURIComponent(text));
-                a.setAttribute('download', filename);
-                a.click();
-            }
-
-
-
-
-
-
-
-        </script>
-
-
-        <script src="trumpftoStandardgcode.js"></script>
-
-
-        </pre>
-        <script>
-            textFromFileLoaded = '';
-            text = '';
-            sections = [];
-            StartTrim = 0;
-            EndTrim = 0;
-            blockselection = null;
-            global_simulation_repeater = null;
-            tolerance = 1;
-            sheetZeroLaser1 = { x: 440, y: 1920 }
-            sheetZeroLaser2 = { x: 440, y: 1460 }
-
-            toleranceINP.value = tolerance;
-            lastSelected = null;
-            function DownloadReports() {
-                str = reportsAr.join('')
-                saveText(str, fnm + "blankEZreport.txt")
-            }
-
-            function DownloadGcode() {
-                blocks = RenumberProgram(blocks)
-                outputGcodeStr = outputGcode(blocks)
-                str = [global_LST_headers, outputGcodeStr, global_LST_footers].join("\n")
-                saveText(str, "MOD" + fnm + "MOD.txt")
-            }
-
-
-            function loadFileAsText() {
-
-                time_Start = Date.now()
-                say("started reading")
-                var fileToLoad = fileInput.files[0];
-                window.fileToLoad = fileToLoad
-                fnm = window.fileToLoad.name
-
-                var fileReader = new FileReader();
-                fileReader.onload = function (fileLoadedEvent) {
-                    textFromFileLoaded = fileLoadedEvent.target.result;
-                    startDo()
-                };
-
-                fileReader.readAsText(fileToLoad, "UTF-8");
-            }
-
-            window.onload = _ => {
-
-                say(3);
-                fnm =
-                    // "one.txt"
-                    // "stencils.LST"
-                    // "MODstencils.LSTMOD.txt"
-                    // "STENCILScorrectorder.LST"
-                    // "PRICCP0040001.LST"
-                    // "MODPRICCP0040001.LSTMOD.txt"
-                    //"P83931_NONEQUIP003_LH21.LST"
-                    //"P83932_SINGLEQUIP003_RH22.LST"
-                    "PRICCP0059001.LST"
-                //"PRICCP0027001.LST"
-                //"PRICCP0076001.LST"
-                fetch(fnm)
-                    .then(r => r.text())
-                    .then(t => { say(4); textFromFileLoaded = t; startDo() })
-            }
-            blocks = [];
-            function startDo() {
-                say("started separating gcode");
-                text = textFromFileLoaded;
-                let indStart = text.indexOf(END_OF_HEADER)
-                if (indStart < 0) {
-                    return say(`LST FILE missing \"${END_OF_HEADER}}\" string`)
-                }
-                indStart = indStart + END_OF_HEADER.length
-                let indEnd = text.indexOf(END_OF_PROGRAM)
-                if (indEnd < 0) {
-                    say(`LST FILE missing \"${END_OF_PROGRAM}\" string. Maybe Generated on old software`)
-                    indEnd = text.length;
-                } else {
-                    indEnd = indEnd
-                }
-                global_LST_headers = text.substring(0, indStart)
-                global_LST_footers = text.substring(indEnd, text.length)
-
-                text = text.substring(indStart, indEnd)
-                say("finished separating gcode");
-                sections = interpretGCode(text)
-                blocks = groupSectionsInBlocks(sections)
-                EndTrim = blocks.length;
-                EndTrimManual.value = EndTrim
-                AutoMetablock2()
-                // drawFromPoints(blocks, true)
-
-                // console.log(profiles)
-                // blocks.flat().map(s => say(s))
-                // sections.filter(s => !(s.typ in NOT_OFFSETABLE_CMDS)).map(s => say(s.gc))
-                // blocks[profiles.i] = profiles.block
-
-                drawFromBlocksSIM(blocks, false)
-                return;
-
-
-                blocksOriginal = JSON.parse(JSON.stringify(blocks))
-                // checkifRepeatsCorrectly(metablock1, blocks)
-
-
-
-
-
-                str = getNumericCode_str_repr(sections)
-                if (window.fileToLoad) {
-                    console.log(window.fileToLoad.name)
-                }
-
-                // console.log(str)
-
-                return;
-
-            }
-
-            function getSelectionBlocks() {
-                let selectedBlocks = [];
-                blocks.forEach(b, i => {
-                    allscsselected = b.map(s => s.select).every(x => x)
-                    if (allscsselected) {
-                        block.select = true
-                        selectBlocks.push(block)
+                function rep(i, func) {
+                    if (func()) {
+                        setTimeout(x => rep(func), 100)
                     }
 
-                })
-                return selectBlocks;
-            }
-
-            function getSelectionSections() {
-
-                return sections.filter(s => s.select)
-            }
-
-            function AutoMetablock1() {
-                metablock1 = findRepeatingSequenceInBlocks(blocks)
-                if (!metablock1) {
-                    msg = ("SORRY, ALGORITHM 1 (comparing two halves of block arrays) FAILED AT FINDING REPEATING SEQUENCE:\n needs at least two exact copies at the start of the program. could not find automatically the metablock \n\nit may mean that program 1st part and second part are inconsistent,\n please try other algorithm or select manually")
-
-                    return swal.fire(msg)
                 }
-                Block_select_set(metablock1, true)
-            }
 
 
-            function AutoMetablock2() {
-                profiles = findBiggestBboxesAndTheirIndices(blocks)//findRepeatingSequenceInBlocks(blocks)
-                // Block_select_set(blocks[profiles.i], true)
-                if (!profiles) {
 
-                    msg = ("could not find automatically the metablock it may mean that program 1st part and second part are inconsistent, TODO WIP:please select manually")
-                    say(msg)
-                    return swal.fire(msg)
+
+
+                function saveText(text, filename) {
+                    var a = document.createElement('a');
+                    a.setAttribute('href', 'data:text/plain;charset=utf-u,' + encodeURIComponent(text));
+                    a.setAttribute('download', filename);
+                    a.click();
                 }
-                if (profiles) {
-                    //TODO do not select yet 
-                    say(blocks)
-                    say(profiles)
-                    let Bs = profiles.map(x => x.block)
-                    say("Bs:", Bs)
-                    // metaBlock_select_set(Bs, true)
-                    // drawFromPoints(blocks)
-                    //swal.fire("these are the largest blocks(probably profiles):" + Bs)
-                    /*
+
+
+
+
+
+
+
+            </script>
+
+
+            <script src="trumpftoStandardgcode.js"></script>
+
+
+            </pre>
+            <script>
+                textFromFileLoaded = '';
+                text = '';
+                sections = [];
+                StartTrim = 0;
+                EndTrim = 0;
+                blockselection = null;
+                global_simulation_repeater = null;
+                tolerance = 1;
+                sheetZeroLaser1 = { x: 440, y: 1920 }
+                sheetZeroLaser2 = { x: 440, y: 1460 }
+
+                toleranceINP.value = tolerance;
+                lastSelected = null;
+                function DownloadReports() {
+                    str = reportsAr.join('')
+                    saveText(str, fnm + "blankEZreport.txt")
+                }
+
+                function DownloadGcode() {
+                    let fnNC = fnm.replace('.LST', '').toUpperCase();
+                    let nufnm = fnNC + "X"
+                    let msg = "save as (LST headers contain the output filename so they will be changed to suit):"
+                    let usrnunm = prompt(msg, nufnm + ".LST")
+                    if (usrnunm) {
+                        nufnm = usrnunm.replace('.LST', '').toUpperCase();
+                    }
+                    var regnm = new RegExp(fnNC, 'g')
+                    let nu_LST_headers = global_LST_headers.replace(regnm, nufnm)
+                    blocks = RenumberProgram(blocks)
+                    outputGcodeStr = outputGcode(blocks)
+
+                    str = [nu_LST_headers, outputGcodeStr, global_LST_footers].join("\n")
+                    // saveText(str, nufnm + ".LST")
+                }
+
+
+                function loadFileAsText() {
+
+                    time_Start = Date.now()
+                    say("started reading")
+                    var fileToLoad = fileInput.files[0];
+                    window.fileToLoad = fileToLoad
+                    fnm = window.fileToLoad.name
+
+                    var fileReader = new FileReader();
+                    fileReader.onload = function (fileLoadedEvent) {
+                        textFromFileLoaded = fileLoadedEvent.target.result;
+                        startDo()
+                    };
+
+                    fileReader.readAsText(fileToLoad, "UTF-8");
+                }
+
+                window.onload = _ => {
+
+                    say(3);
+                    fnm =
+                        // "one.txt"
+                        // "stencils.LST"
+                        // "MODstencils.LSTMOD.txt"
+                        // "STENCILScorrectorder.LST"
+                        // "PRICCP0040001.LST"
+                        // "MODPRICCP0040001.LSTMOD.txt"
+                        //"P83931_NONEQUIP003_LH21.LST"
+                        //"P83932_SINGLEQUIP003_RH22.LST"
+                        // "PRICCP0059001.LST"
+                        "PRICCP0059001.LST"
+                    // "onepart.LST"
+                    //"PRICCP0027001.LST"
+                    //"PRICCP0076001.LST"
+                    fetch(fnm)
+                        .then(r => r.text())
+                        .then(t => { say(4); textFromFileLoaded = t; startDo() })
+                }
+                blocks = [];
+                function startDo() {
+                    say("started separating gcode");
+                    text = textFromFileLoaded;
+                    let indStart = text.indexOf(END_OF_HEADER)
+                    if (indStart < 0) {
+                        return say(`LST FILE missing \"${END_OF_HEADER}}\" string`)
+                    }
+                    indStart = indStart + END_OF_HEADER.length
+                    let indEnd = text.indexOf(END_OF_PROGRAM)
+                    if (indEnd < 0) {
+                        say(`LST FILE missing \"${END_OF_PROGRAM}\" string. Maybe Generated on old software`)
+                        indEnd = text.length;
+                    } else {
+                        indEnd = indEnd
+                    }
+                    global_LST_headers = text.substring(0, indStart)
+                    global_LST_footers = text.substring(indEnd, text.length)
+
+                    text = text.substring(indStart, indEnd)
+                    say("finished separating gcode");
+                    progfnm.innerText = fnm
+                    sections = interpretGCode(text)
+                    blocks = groupSectionsInBlocks(sections)
+                    // blocks = RenumberProgram(blocks)
+                    StartTrim = 0
+                    EndTrim = blocks.length - 1;
+                    EndTrimManual.value = EndTrim + 1;
+                    StartTrimManual.value = 0 + 1;
+                    StartBlockspan.innerText = blocks[0]._B
+                    EndBlockspan.innerText = blocks[blocks.length - 1]._B
+                    selectBlocks(0, EndTrim)
+                    blocks.flat().forEach(s => s.select = false)
+                    trimLengthSpan.innerText = blocks.length + " (not highlighting)"
+
+                    //test:
+
+                    // outputGcodeStr = outputGcode(blocks)
+
+                    // AutoMetablock2()
+                    // drawFromPoints(blocks, true)
+
+                    // console.log(profiles)
+                    // blocks.flat().map(s => say(s))
+                    // sections.filter(s => !(s.typ in NOT_OFFSETABLE_CMDS)).map(s => say(s.gc))
+                    // blocks[profiles.i] = profiles.block
+
+                    drawFromBlocksSIM(blocks, false)
+                    return;
+
+
+                    blocksOriginal = JSON.parse(JSON.stringify(blocks))
+                    // checkifRepeatsCorrectly(metablock1, blocks)
+
+
+
+
+
+                    str = getNumericCode_str_repr(sections)
+                    if (window.fileToLoad) {
+                        console.log(window.fileToLoad.name)
+                    }
+
+                    // console.log(str)
+
+                    return;
+
+                }
+
+                function getSelectionBlocks() {
+                    let selectedBlocks = [];
+                    blocks.forEach(b, i => {
+                        allscsselected = b.map(s => s.select).every(x => x)
+                        if (allscsselected) {
+                            block.select = true
+                            selectBlocks.push(block)
+                        }
+
+                    })
+                    return selectBlocks;
+                }
+
+                function getSelectionSections() {
+
+                    return sections.filter(s => s.select)
+                }
+
+                function AutoMetablock1() {
+                    metablock1 = findRepeatingSequenceInBlocks(blocks)
+                    if (!metablock1) {
+                        msg = ("SORRY, ALGORITHM 1 (comparing two halves of block arrays) FAILED AT FINDING REPEATING SEQUENCE:\n needs at least two exact copies at the start of the program. could not find automatically the metablock \n\nit may mean that program 1st part and second part are inconsistent,\n please try other algorithm or select manually")
+
+                        return swal.fire(msg)
+                    }
+                    Block_select_set(metablock1, true)
+                }
+
+
+                function AutoMetablock2() {
+                    profiles = findBiggestBboxesAndTheirIndices(blocks)//findRepeatingSequenceInBlocks(blocks)
+                    // Block_select_set(blocks[profiles.i], true)
+                    if (!profiles) {
+
+                        msg = ("could not find automatically the metablock it may mean that program 1st part and second part are inconsistent, TODO WIP:please select manually")
+                        say(msg)
+                        return swal.fire(msg)
+                    }
+                    if (profiles) {
+                        //TODO do not select yet 
+                        say(blocks)
+                        say(profiles)
+                        let Bs = profiles.map(x => x.block)
+                        say("Bs:", Bs)
+                        // metaBlock_select_set(Bs, true)
+                        // drawFromPoints(blocks)
+                        //swal.fire("these are the largest blocks(probably profiles):" + Bs)
+                        /*
+                        metablocks = splitByMetablock(metablock1, blocks)
+                        mbinconsistencies = checkMetablockConsistency(metablock1, metablocks)
+                        */
+                    }
+                }
+
+
+
+                function setMetablockFromSelection() {
+                    selectBlocks(0, 0)
+                    metablock1 = blocks.slice(StartTrim, EndTrim)
                     metablocks = splitByMetablock(metablock1, blocks)
                     mbinconsistencies = checkMetablockConsistency(metablock1, metablocks)
-                    */
-                }
-            }
-
-
-
-            function setMetablockFromSelection() {
-                selectBlocks(0, 0)
-                metablock1 = blocks.slice(StartTrim, EndTrim)
-                metablocks = splitByMetablock(metablock1, blocks)
-                mbinconsistencies = checkMetablockConsistency(metablock1, metablocks)
-                drawFromPoints(blocks)
-            }
-
-            function prevBlockStartTrimBtnClick() {
-                StartTrimManual.value = parseInt(StartTrimManual.value) - 1
-                set_StartTrim()
-
-            }
-
-            function nextBlockStartTrimBtnClick() {
-
-                StartTrimManual.value = parseInt(StartTrimManual.value) + 1
-                set_StartTrim()
-
-            }
-            function prevBlockEndTrimBtnClick() {
-                EndTrimManual.value = parseInt(EndTrimManual.value) - 1
-                set_EndTrim()
-
-            }
-            function nextBlockEndTrimBtnClick() {
-                EndTrimManual.value = parseInt(EndTrimManual.value) + 1
-                set_EndTrim()
-
-            }
-
-            function simulate(what) {
-                if (what === 3) {
-
-                    global_simulation_repeater.running = !global_simulation_repeater.running
-                    if (global_simulation_repeater.running) global_simulation_repeater.repeat()
-                    SIMST.innerText = global_simulation_repeater.running ? 'stop' : 'start';
-                } else if (global_simulation_repeater !== null) {
-                    global_simulation_repeater.stop();
-                    global_simulation_repeater = null;
-                }
-                if (what === 2) {
-                    global_simulation_interval = global_simulation_interval < 20 ? 20 : global_simulation_interval;
-                    simspeed.value = global_simulation_interval
-                    drawFromBlocksSIM(blocks, false)
-
-                } else if (what === 1) {
-                    global_simulation_interval = global_simulation_interval > 2000 ? 2000 : global_simulation_interval;
-                    simspeed.value = global_simulation_interval
-                    drawFromSectionsSIM(blocks, false)
+                    drawFromPoints(blocks)
                 }
 
-            }
+                function prevBlockStartTrimBtnClick() {
+                    // EndTrimManual.value = parseInt(EndTrimManual.value) - 1
+                    let elINP = StartTrimManual
+                    let inc = -1
+                    let parsed = parseInt(elINP.value)
+                    parsed += inc
 
-            function UIUpdate() {
+                    elINP.value = parsed <= 0 ? 1 : parsed;
+                    say("new value:", parsed)
 
-                EndTrimManual.value = EndTrim
-                StartTrimManual.value = StartTrim
-                return;
-            }
-
-            function set_StartTrim() {
-                StartTrim = parseInt(StartTrimManual.value)
-                selectBlocks(StartTrim, EndTrim)
-            }
-            function set_EndTrim() {
-                EndTrim = parseInt(EndTrimManual.value)
-                selectBlocks(StartTrim, EndTrim)
-            }
-
-            function set_tolerance() {
-                tolerance = parseFloat(toleranceINP.value)
-
-            }
-
-            function selectBlocks(start, end) {
-                blocks.flat().forEach(s => {
-                    s.select = false;
-                })
-                blockselection = blocks.slice(start, end);
-                blockselection.forEach(b => { b.select = true })
-                blockselection.flat().forEach(s => {
-                    s.select = true
-                })
-                console.log(start, end)
-
-                drawFromPoints(blocks)
-            }
-
-            function set_simspeed() {
-                global_simulation_interval = parseInt(simspeed.value || 1)
-            }
-
-            function deleteBlockByBlockNumbers(B_nos) {
-                let toDelete = blocks.filter(b => B_nos.includes(b._B))
-                deleteBlocks(blocks, toDelete)
-            }
-
-            function deleteSelectedBlocksRange() {
-                say(blockselection)
-                let si = blocks.indexOf(blockselection[0])
-                let ei = blocks.indexOf(blockselection[blockselection.length - 1])
-                blocks.splice(si, ei - si + 1)
-                drawFromPoints(blocks)
-            }
-
-            function deleteBlocks(toDelete) {
-                removeItems(blocks, toDelete)
-                drawFromPoints(blocks)
-            }
-
-
-            function reverseAllBlocks() {
-                blocks = ReverseAllProgramBlocksAndRenumberEverything(blocks)
-            }
-
-            function getBlockByBNumber(B_no) {
-                return blocks.filter(b => B_no === b._B)[0]
-            }
-
-            function makeOptions() {
-                return {
-                    start: 0,
-                    end: blocks.length,
-                    "before copied": null,
-                    "after copied": null,
-                };
-            }
-
-            //TODO make B_to_I I_to_B updated dicts or funcs
-
-            function copymovetranslateBlocksWhere(blocksToCopyMove, where, offsetVector = defOffsetVector) {
-                let wh = where;
-                let nubs = blocksToCopyMove.map(b => {
-                    return translateBlockCopy(b, offsetVector)
-                })
-                let wi;
-                if (isNaN(parseInt(where))) {
-                    wi = wh === "end" ? 0 :
-                        wh === "start" ? blocks.length :
-                            wh === "before copied" ? (blocks.indexOf(blocksToCopyMove[0])) :
-                                wh === "after copied" ? (blocks.indexOf(blocksToCopyMove[blocksToCopyMove.length - 1])) + 1 :
-                                    blocks.length;
-                }
-
-                blocks.splice(wi, 0, ...nubs);
-            }
-
-            function RepeatProginAxis(xory, numberOfTimes = 1, dist = 5) {
-
-                let toRepeat = blocks.slice(0, blocks.length)
-                let bbx = calcBoundBox(blocks.flat())
-
-                ov = { x: bbx.rangeX, y: bbx.rangeY }
-                let ov2;
-                if (xory.toLowerCase() === "x") {
-                    ov2 = { x: ov.x + dist, y: 0 }
-                } else if (xory.toLowerCase() === "y") {
-                    ov2 = { x: 0, y: -(ov.y + dist) }
-                }
-
-                for (let r = 1; r <= numberOfTimes; r++) {
-                    ops.copymovetranslateBlocksWhere(toRepeat, "end", { x: ov2.x * r, y: ov2.y * r })
+                    set_StartTrim()
 
                 }
-                drawFromPoints(blocks)
-            }
 
-            function HowManyWillFitY(maxY = 1250, dist = 5) {
-                let bbx = calcBoundBox(blocks.flat())
-                let nuzero = bbx.maxY - dist // 454.93
-                let repSize = bbx.rangeY + dist
-                let howManyFit = Math.floor(maxY / repSize)
-                return howManyFit
-            }
+                function nextBlockStartTrimBtnClick() {
+                    let elINP = StartTrimManual
+                    let inc = 1
+                    let parsed = parseInt(elINP.value)
+                    parsed += inc
 
-            function MakeRow(maxY, dist = 5) {
-                let hm = HowManyWillFitY(maxY, dist)
-                RepeatProginAxis("y", hm, dist);
-            }
+                    elINP.value = parsed >= blocks.length ? blocks.length : parsed;
 
-            function MakeRowUI() {
-                let maxY = prompt("enter sheet Y size in mm", "1250")
-                let dist = prompt("enter sheet Y size in mm", "5")
-                if (!maxY) return;
-                if (!dist) return;
-                maxY = parseInt(maxY)
-                dist = parseInt(dist)
-                if (isNaN(maxY)) return;
-                if (isNaN(dist)) return;
-                MakeRow(maxY, dist)
-            }
-
-            function scaleProgtoFit(maxX, maxY) {
-                throw Error("unimplemented")
-                let bbx = calcBoundBox(blocks.flat())
-                let howbigisOnePart = bbx.rangeY;
-                // let normalised = howbigisOnePart
-                // let scaledmax = howbigisOnePart * 0.5
-                // let scaledbbox = howbigisOnePart
-            }
+                    say("new value:", parsed)
 
 
+                    set_StartTrim()
 
+                }
+                function prevBlockEndTrimBtnClick() {
+                    // EndTrimManual.value = parseInt(EndTrimManual.value) - 1
+                    let elINP = EndTrimManual
+                    let inc = -1
+                    let parsed = parseInt(elINP.value)
+                    parsed += inc
 
-            function moveBlocksBeforeBlock() {
+                    elINP.value = parsed <= 0 ? 1 : parsed;
+                    say("new value:", parsed)
+                    set_EndTrim()
 
-            }
+                }
+                function nextBlockEndTrimBtnClick() {
+                    let elINP = EndTrimManual
+                    let inc = 1
+                    let parsed = parseInt(elINP.value)
+                    parsed += inc
 
-            function selectSimilarBlocks(tol) {
-                //TODO NOW
+                    elINP.value = parsed >= blocks.length ? blocks.length : parsed;
 
-            }
+                    say("new value:", parsed)
+                    set_EndTrim()
 
-            function selectEverythingBetweenTwoBlocks(tol) {
-                //TODO NOW for last selected , selects all similar
+                }
 
-            }
+                function simulate(what) {
+                    if (what === 3) {
 
-            function selectEverythingBetweenSelectedAndLastSimilarBlock(tol) {
-                //TODO NOW only one selected block has to be                 
-
-            }
-
-
-            const ops = { RepeatProginAxis, deleteSelectedBlocksRange, reverseAllBlocks, deleteBlocks, deleteBlockByBlockNumbers, selectBlocks, copymovetranslateBlocksWhere, getBlockByBNumber }
-
-
-            //noontz
-            //https://stackoverflow.com/questions/11112321/how-to-save-canvas-as-png-image/58652379#58652379
-            function DownloadCanvasAsImage() {
-                curBGindex = 1;
-                drawFromPoints(blocks)
-                let downloadLink = document.createElement('a');
-
-                downloadLink.setAttribute('download', fnm + 'blankEZ.png');
-                canvas.toBlob(function (blob) {
-                    let url = URL.createObjectURL(blob);
-                    downloadLink.setAttribute('href', url);
-                    downloadLink.click();
-                });
-            }
-
-            function toggleCanvasTransparency() {
-                curBGindex = (!curBGindex & !curBGindex)
-                curCanvasBG = BGcolors[curBGindex]
-                return curBGindex;
-            }
-
-        </script>
-
-
-
-        <script>
-            window.addEventListener('load', function () {
-
-                let obj = draggableCorner
-
-                var dragged = false
-                var mousedowned = false;
-                obj.addEventListener('mousedown', function () {
-                    mousedowned = true;
-                    dragged = false
-
-                }, true)
-                obj.addEventListener('mousemove', function (event) {
-
-                    if (mousedowned) {
-                        dragged = true
-                        moveControls(event)
+                        global_simulation_repeater.running = !global_simulation_repeater.running
+                        if (global_simulation_repeater.running) global_simulation_repeater.repeat()
+                        SIMST.innerText = global_simulation_repeater.running ? 'stop' : 'start';
+                    } else if (global_simulation_repeater !== null) {
+                        global_simulation_repeater.stop();
+                        global_simulation_repeater = null;
                     }
-                }, true)
-                window.addEventListener('mouseup', function () {
-                    mousedowned = false;
-                    if (dragged == true) {
-                        return
+                    if (what === 2) {
+                        global_simulation_interval = global_simulation_interval < 20 ? 20 : global_simulation_interval;
+                        simspeed.value = global_simulation_interval
+                        drawFromBlocksSIM(blocks, false)
+
+                    } else if (what === 1) {
+                        global_simulation_interval = global_simulation_interval > 2000 ? 2000 : global_simulation_interval;
+                        simspeed.value = global_simulation_interval
+                        drawFromSectionsSIM(blocks, false)
                     }
-                }, true)
 
-                obj.addEventListener('mydragevent', function (event) {
-                    event.preventDefault();
-                    moveControls(event);
-                }, true)
-
-                obj.addEventListener('touchmove', function (event) {
-                    event.preventDefault();
-                    moveControls(event);
-                }, false);
-
-                obj.addEventListener('', function (event) {
-                    event.preventDefault();
-                    moveControls(event);
-                }, false);
-
-                obj.addEventListener('touchcancel', function (event) {
-                    event.preventDefault();
-                    moveControls(event);
-                }, false);
-
-                // }
-
-            })
-
-
-            function moveControls(event) {
-
-
-
-                var touch = event.targetTouches ? event.targetTouches[0] : event;
-                if (touch) {
-                    // Place element where the finger is
-
-                    var sX = window.pageXOffset;
-                    var sY = window.pageYOffset;
-
-
-                    Ex = touch.pageX < 0 ? "200px" : touch.pageX - sX;
-                    Ey = touch.pageY < 0 ? (console.log("touch beyond screen!:" + touch.pageY), '1000px') : touch.pageY - sY;
-                    Ex < 100 ? Ex = 100 : 0;
-                    Ey < 100 ? Ey = 100 : 0;
-
-
-
-                    Tstyle = event.target.parentElement.style;
-                    TzoomF = (Tstyle.zoom.replace("%", "") / 100).toFixed(2);
-
-
-
-                    eZ.ctrls.cX = Tstyle.left = (Ex / TzoomF).toFixed(2) + 'px';
-                    eZ.ctrls.cY = Tstyle.top = (Ey / TzoomF).toFixed(2) + 'px';
-
-                    // console.log();
-
-
-                    //event.target.innerText="↹:\n"+ctrls.cX+"\n"+ctrls.cY;
-                } else {
-                    alert(touch);
                 }
 
-            }
-            var eZ = {
-                ctrls: {
-                    cX: 0,
-                    cY: 0,
-                }
-            }
+                function UIUpdate() {
 
-        </script>
+                    EndTrimManual.value = EndTrim
+                    StartTrimManual.value = StartTrim
+                    return;
+                }
+
+                function set_StartTrim() {
+                    StartTrim = parseInt(StartTrimManual.value) - 1
+                    // StartTrim = nuStartTrim > blocks.length
+                    selectBlocks(StartTrim, EndTrim)
+                }
+                function set_EndTrim() {
+                    EndTrim = parseInt(EndTrimManual.value) - 1
+                    selectBlocks(StartTrim, EndTrim)
+                }
+
+                function set_tolerance() {
+                    tolerance = parseFloat(toleranceINP.value)
+
+                }
+
+                function selectBlocks(start, end) {
+                    blocks.flat().forEach(s => {
+                        s.select = false;
+                    })
+                    if (start === end) {
+                        blockselection = [blocks[start]]
+                    }
+                    blockselection = blocks.slice(start, end + 1);
+                    say("SELECTION:", { start, end }, "length:", blockselection.length, blockselection)
+                    blockselection.forEach(b => { b.select = true })
+                    blockselection.flat().forEach(s => {
+                        s.select = true
+                    })
+                    StartBlockspan.innerText = blocks[start]._B
+                    if (end >= start) {
+                        trimLengthSpan.innerText = blockselection.length
+                        EndBlockspan.innerText = blocks[end]._B
+                    } else {
+                        trimLengthSpan.innerText = 0
+                        EndBlockspan.innerText = "invalid"
+
+                    }
+
+
+                    drawFromPoints(blocks)
+                }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                function set_simspeed() {
+                    global_simulation_interval = parseInt(simspeed.value || 1)
+                }
+
+                function deleteBlockByBlockNumbers(B_nos) {
+                    let toDelete = blocks.filter(b => B_nos.includes(b._B))
+                    deleteBlocks(blocks, toDelete)
+                }
+
+                function deleteSelectedBlocksRange() {
+                    say(blockselection)
+                    let si = blocks.indexOf(blockselection[0])
+                    let ei = blocks.indexOf(blockselection[blockselection.length - 1])
+                    blocks.splice(si, ei - si + 1)
+                    drawFromPoints(blocks)
+                }
+
+                function deleteBlocks(toDelete) {
+                    removeItems(blocks, toDelete)
+                    drawFromPoints(blocks)
+                }
+
+
+                function reverseAllBlocks() {
+                    blocks = ReverseAllProgramBlocksAndRenumberEverything(blocks)
+                }
+
+                function getBlockByBNumber(B_no) {
+                    return blocks.filter(b => B_no === b._B)[0]
+                }
+
+                function makeOptions() {
+                    return {
+                        start: 0,
+                        end: blocks.length,
+                        "before copied": null,
+                        "after copied": null,
+                    };
+                }
+
+                //TODO make B_to_I I_to_B updated dicts or funcs
+
+                function copymovetranslateBlocksWhere(blocksToCopyMove, where, offsetVector = defOffsetVector) {
+                    let wh = where;
+                    let nubs = blocksToCopyMove.map(b => {
+                        return translateBlockCopy(b, offsetVector)
+                    })
+                    let wi;
+                    if (isNaN(parseInt(where))) {
+                        wi = wh === "start" ? 0 :
+                            wh === "end" ? blocks.length :
+                                wh === "before copied" ? (blocks.indexOf(blocksToCopyMove[0])) :
+                                    wh === "after copied" ? (blocks.indexOf(blocksToCopyMove[blocksToCopyMove.length - 1])) + 1 :
+                                        blocks.length;
+                    }
+
+                    blocks.splice(wi, 0, ...nubs);
+                }
+
+                function RepeatBlocksinAxis(toRepeat, xory, numberOfTimes = 1, dist = 5) {
+
+                    //let toRepeat = blocks.slice(0, blocks.length)
+                    let bbx = calcBoundBox(toRepeat.flat())
+
+                    ov = { x: bbx.rangeX, y: bbx.rangeY }
+                    let ov2;
+                    if (xory.toLowerCase() === "x") {
+                        ov2 = { x: ov.x + dist, y: 0 }
+                    } else if (xory.toLowerCase() === "y") {
+                        ov2 = { x: 0, y: -(ov.y + dist) }
+                    }
+
+                    for (let r = 1; r <= numberOfTimes; r++) {
+                        ops.copymovetranslateBlocksWhere(toRepeat, "end", { x: ov2.x * r, y: ov2.y * r })
+
+
+                    }
+                    drawFromPoints(blocks)
+                }
+
+                function HowManyWillFitY(blocks, maxY = 1250, dist = 5) {
+                    let bbx = calcBoundBox(blocks.flat())
+                    let nuzero = bbx.maxY - dist // 454.93
+                    let repSize = bbx.rangeY + dist
+                    let howManyFit = Math.floor(maxY / repSize)
+                    return howManyFit
+                }
+
+                function MakeRow(toRepeat, maxY, dist = 5) {
+
+                    let hm = HowManyWillFitY(toRepeat, maxY, dist)
+                    RepeatBlocksinAxis(toRepeat, "y", hm - 1, dist);
+                }
+
+                function MakeRowUI() {
+                    if (!blockselection.length) {
+                        return swal.fire("please select blocks to repeat first")
+                    }
+                    let maxY = prompt("enter sheet Y size in mm", "1250")
+                    let dist = prompt("enter sheet Y size in mm", "5")
+                    if (!maxY) return;
+                    if (!dist) return;
+                    maxY = parseInt(maxY)
+                    dist = parseInt(dist)
+                    if (isNaN(maxY)) return;
+                    if (isNaN(dist)) return;
+                    MakeRow(blockselection, maxY, dist)
+                }
+
+                function scaleProgtoFit(maxX, maxY) {
+                    throw Error("unimplemented")
+                    let bbx = calcBoundBox(blocks.flat())
+                    let howbigisOnePart = bbx.rangeY;
+                    // let normalised = howbigisOnePart
+                    // let scaledmax = howbigisOnePart * 0.5
+                    // let scaledbbox = howbigisOnePart
+                }
+
+
+
+
+                function moveBlocksBeforeBlock() {
+
+                }
+
+                function selectSimilarBlocks(tol) {
+                    //TODO NOW
+
+                }
+
+                function selectEverythingBetweenTwoBlocks(tol) {
+                    //TODO NOW for last selected , selects all similar
+
+                }
+
+                function selectEverythingBetweenSelectedAndLastSimilarBlock(tol) {
+                    //TODO NOW only one selected block has to be                 
+
+                }
+
+
+                const ops = { RepeatBlocksinAxis, deleteSelectedBlocksRange, reverseAllBlocks, deleteBlocks, deleteBlockByBlockNumbers, selectBlocks, copymovetranslateBlocksWhere, getBlockByBNumber }
+
+
+                //noontz
+                //https://stackoverflow.com/questions/11112321/how-to-save-canvas-as-png-image/58652379#58652379
+                function DownloadCanvasAsImage() {
+                    curBGindex = 1;
+                    drawFromPoints(blocks)
+                    let downloadLink = document.createElement('a');
+
+                    downloadLink.setAttribute('download', fnm + 'blankEZ.png');
+                    canvas.toBlob(function (blob) {
+                        let url = URL.createObjectURL(blob);
+                        downloadLink.setAttribute('href', url);
+                        downloadLink.click();
+                    });
+                }
+
+                function toggleCanvasTransparency() {
+                    curBGindex = (!curBGindex & !curBGindex)
+                    curCanvasBG = BGcolors[curBGindex]
+                    return curBGindex;
+                }
+
+            </script>
+
+
+
+            <script>
+                window.addEventListener('load', function () {
+
+                    let obj = draggableCorner
+
+                    var dragged = false
+                    var mousedowned = false;
+                    obj.addEventListener('mousedown', function () {
+                        mousedowned = true;
+                        dragged = false
+
+                    }, true)
+                    obj.addEventListener('mousemove', function (event) {
+
+                        if (mousedowned) {
+                            dragged = true
+                            moveControls(event)
+                        }
+                    }, true)
+                    window.addEventListener('mouseup', function () {
+                        mousedowned = false;
+                        if (dragged == true) {
+                            return
+                        }
+                    }, true)
+
+                    obj.addEventListener('mydragevent', function (event) {
+                        event.preventDefault();
+                        moveControls(event);
+                    }, true)
+
+                    obj.addEventListener('touchmove', function (event) {
+                        event.preventDefault();
+                        moveControls(event);
+                    }, false);
+
+                    obj.addEventListener('', function (event) {
+                        event.preventDefault();
+                        moveControls(event);
+                    }, false);
+
+                    obj.addEventListener('touchcancel', function (event) {
+                        event.preventDefault();
+                        moveControls(event);
+                    }, false);
+
+                    // }
+
+                })
+
+
+                function moveControls(event) {
+
+
+
+                    var touch = event.targetTouches ? event.targetTouches[0] : event;
+                    if (touch) {
+                        // Place element where the finger is
+
+                        var sX = window.pageXOffset;
+                        var sY = window.pageYOffset;
+
+
+                        Ex = touch.pageX < 0 ? "200px" : touch.pageX - sX;
+                        Ey = touch.pageY < 0 ? (console.log("touch beyond screen!:" + touch.pageY), '1000px') : touch.pageY - sY;
+                        Ex < 100 ? Ex = 100 : 0;
+                        Ey < 100 ? Ey = 100 : 0;
+
+
+
+                        Tstyle = event.target.parentElement.style;
+                        TzoomF = (Tstyle.zoom.replace("%", "") / 100).toFixed(2);
+
+
+
+                        eZ.ctrls.cX = Tstyle.left = (Ex / TzoomF).toFixed(2) + 'px';
+                        eZ.ctrls.cY = Tstyle.top = (Ey / TzoomF).toFixed(2) + 'px';
+
+                        // console.log();
+
+
+                        //event.target.innerText="↹:\n"+ctrls.cX+"\n"+ctrls.cY;
+                    } else {
+                        alert(touch);
+                    }
+
+                }
+                var eZ = {
+                    ctrls: {
+                        cX: 0,
+                        cY: 0,
+                    }
+                }
+
+            </script>
 
 
 </body>

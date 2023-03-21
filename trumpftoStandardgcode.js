@@ -136,7 +136,7 @@ const NOT_OFFSETABLE_CMDS = {
     BLOCK_START,
     OTHER,
     LABEL,
-    R //TODO R1 , R2, R3 are actually offsetable
+    // R //TODO R1 , R2, R3 are actually offsetable
 }
 
 
@@ -144,14 +144,14 @@ const NOT_DRAW_IMPLEMENTED = {
     TC_,
     TC_RECT2,
     BLOCK_START,
-    R,
+
     LABEL,
     OTHER
 }
 
 const DO_NOT_DRAW = {
     BLOCK_START,
-    R,
+
     LABEL,
     OTHER
 }
@@ -234,7 +234,6 @@ function getAllVars(gcln, startIndex = 0, cur, debug) {
     let nexti = startIndex
     for (let ci = 0; ci <= gcln.length && nexti !== null; ci += 4) {
         let t1 = getNextAssignment_Name_Value_nexti(gcln, nexti)
-        if (debug) say(t1)
 
         nexti = t1.nexti;
         let numv = parseFloat(t1.strv);
@@ -251,7 +250,7 @@ function getAllVars(gcln, startIndex = 0, cur, debug) {
         paramsR[t1.n] = numv
 
     }
-    if (debug) say(paramsR)
+    // if (debug) say(paramsR)
     return paramsR
 }
 
@@ -682,7 +681,7 @@ function renumberSections(sectionsOrBlpcks) {
 
 }
 
-function addSection(cur, typ, onoffevapState, params, gcl) {
+function addSection(cur, typ, onoffevapState, params, gcl, cmdstr) {
     let hadLineNo = cur.n !== null;
     let ob = {
         typ: typ,
@@ -692,6 +691,7 @@ function addSection(cur, typ, onoffevapState, params, gcl) {
         hadN: hadLineNo,
         B: cur.b,
         gc: gcl,
+        cmdstr: cmdstr,
     }
     if (Object.values(params).some(isNaN)) {
         console.error(cur.n, "NOT stopping but line with NaN", [typ, params, cur.n, gcl])
@@ -801,10 +801,12 @@ function interpretGCode(gCode) {
 
         } else if (gcln.startsWith(G_)) {
             let istartforvars = gcln.indexOf(' ', G_.length)
+            let cmdstr = gcln.substring(0, istartforvars)
+            // say(cmdstr)
             if (istartforvars < 0) throw alert(cur.n + " N no normal Gcode need some space;)")
             let params = getAllVars(gcln, istartforvars + 1, cur)
 
-            addSection(cur, G_, GmodalState, params, gcln)
+            addSection(cur, G_, GmodalState, params, gcln, cmdstr)
 
         } else if (gcln.startsWith(TC_LASER_ON)) {
 
@@ -934,6 +936,13 @@ function interpretGCode(gCode) {
 }
 
 function sectionToGcode(s) {
+    xr = /X = [+-]?\d+(\.\d+)?/
+    yr = /Y = [+-]?\d+(\.\d+)?/
+    i1r = /I1 = [+-]?\d+(\.\d+)?/
+    j1r = /J1 = [+-]?\d+(\.\d+)?/
+    r1r = /R1 = [+-]?\d+(\.\d+)?/
+    r2r = /R2 = [+-]?\d+(\.\d+)?/
+
     let l = ''
     //for now only works for reversing and reordering (KISS first then do complex)
     l += s.hadN ? `N${s.N}0 ` : '';
@@ -946,8 +955,30 @@ function sectionToGcode(s) {
             l += s.gc
         }
     } else {
-        l += s.gc
+        if (s.typ === G_) {
+
+            // l += s.cmdstr
+            l += s.gc.replace(xr, "X = " + s.params.x.toFixed(2))
+                .replace(yr, "Y = " + s.params.y.toFixed(2))
+        } else if (s.typ === CIP) {
+
+            // l += "CIP "
+            l += s.gc.replace(xr, "X = " + s.params.x.toFixed(2))
+                .replace(yr, "Y = " + s.params.y.toFixed(2))
+                .replace(i1r, "I1 = " + s.params.i1.toFixed(2))
+                .replace(j1r, "J1 = " + s.params.j1.toFixed(2))
+        } else if (s.typ === R) {
+
+
+            l += s.gc.replace(r1r, "R1 = " + s.params.r1.toFixed(2))
+                .replace(r2r, "R2 = " + s.params.r2.toFixed(2))
+
+        } else {
+            l += s.gc
+        }
     }
+    say(s.gc)
+    say(l)
     l += '\n'
     return l
 
@@ -1027,7 +1058,12 @@ function translateBlock(b, offsetVector) {
 
 function translateSection(s, offsetVector) {
     if (s.typ in NOT_OFFSETABLE_CMDS) return s;
-    let nups = {}
+    let nus = JSON.parse(JSON.stringify(s))
+    let nups = nus.params;
+    nups.select = false;
+    nus.B = null;
+    nus.N = null;
+
     let olps = s.params
     nups.x = olps.x + offsetVector.x;
     nups.y = olps.y + offsetVector.y;
@@ -1035,7 +1071,11 @@ function translateSection(s, offsetVector) {
         nups.i1 = olps.i1 + offsetVector.x;
         nups.j1 = olps.j1 + offsetVector.y;
     }
-    let nus = Object.assign({}, s)
+    if (s.typ === R) { // TODO TC_CIRCLE.typ
+        nups.r1 = olps.r1 + offsetVector.x;
+        nups.r2 = olps.r2 + offsetVector.y;
+    }
+    // let nus = Object.assign({}, s)
     nus.params = nups;
     return nus;
 }
