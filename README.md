@@ -2,11 +2,8 @@ demo running live on:
 [graphical interface now](https://osmiogrzesznik.github.io/HtmlTools/inconsistencyCheck.html)
 ##What it does:
 
-prints out the trumpf g-code on canvas (WIP) marks inconsitencies
-
-TODO: 
-mixed version with my BlankEZ that allows to automatically create perfect offset copies
-
-NOTE TO SELF:
-
-KISS - Keep it simple, stupid
+prints out the trumpf g-code on canvas (WIP) 
+Intended only to use with blank cutting
+detects profiles, regularities in nesting to mark inconsitencies(outside cut before inside cut)
+allows crude block selection, editing and analysing TruTops generated files
+for faster identification of dangers or quick block-level edit that doesnt require firing often slow 3d software for quick fix.
