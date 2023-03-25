@@ -24,7 +24,7 @@ reportsAr = []
 report = (...x) => reportsAr.push(x.join('') + "\n")
 
 
-function metaBlock_select_set(blocks, boolA) {
+function metablock_select_set(blocks, boolA) {
     blocks.select = boolA
     blocks.isMetaBlock = true;
     blocks.forEach(block => {
@@ -45,11 +45,7 @@ function Block_select_set(block, boolA) {
 
 }
 
-if (typeof Array.prototype.move === "undefined") {
-    Array.prototype.move = function (from, to, howMany = 1) {
-        return this.splice(to, 0, ...this.splice(from, howMany)), this
-    }
-}
+
 
 function removeItem(arr, value) {
     var index = arr.indexOf(value);
@@ -85,6 +81,7 @@ const colorSelected = 'rgba(0,255,0,1)';
 
 const colorUnknownCMD = 'rgba(160,0,175,1)';
 const colorUnknownCMDSemi = 'rgba(0,0,155,0.5)';
+
 const GM_EVAP = 5
 const GM_CUT = 1
 const GM_OFF = 0
@@ -110,7 +107,7 @@ const GM_OFF = 0
 bbox = null;
 cachedoffsSections = null;
 TC_OBLONG2 = 0
-TC_STARTPOS2 = 0
+
 const TC_ = 'TC_'
 const TC_n = -1
 const G_ = "G0"
@@ -123,6 +120,7 @@ const LABEL = "LABEL"
 const TC_RECT2 = 'TC_RECT2' //put a star on last params
 const TC_RECT2n = -11; //put a star on last params
 const TC_CIRC2 = 'TC_CIRC2'
+const TC_STARTPOS2 = 'TC_STARTPOS2'
 const TC_CIRC2n = 6;
 const BLOCK_START = 'BLOCK_START'
 const BLOCK_STARTn = -1000
@@ -136,6 +134,7 @@ const NOT_OFFSETABLE_CMDS = {
     BLOCK_START,
     OTHER,
     LABEL,
+    // TC_STARTPOS2
     // R //TODO R1 , R2, R3 are actually offsetable
 }
 
@@ -144,7 +143,7 @@ const NOT_DRAW_IMPLEMENTED = {
     TC_,
     TC_RECT2,
     BLOCK_START,
-
+    TC_STARTPOS2,
     LABEL,
     OTHER
 }
@@ -191,68 +190,12 @@ global_simulation_interval = 1
 cur.x = 0
 cur.y = 0
 cur.n = null;
-global_points = []
+cur.global_points = []
 var ctx_scl = 4;
 var currentLineWidth = 0.5;
 
 
 
-
-function getNextAssignment_Name_Value_nexti(gcln, fromIndex, assignmentToken = " = ") {
-    if (fromIndex === null) {
-        throw Error("Bbb :no null allowed to prevent infinite loop")
-    }
-    gcln = gcln.trim()
-    let iAssignmentToken = gcln.indexOf(assignmentToken, fromIndex);
-    if (iAssignmentToken < 0) return false;
-    //let NameAssgSeqString = gcln.substring(fromIndex, iAssignmentToken)
-    let minnumvallen = 2
-    //let iNameAssgSeqStart = gcln.indexOf(NameAssgSeqString, fromIndex); //search for "Rxx = " after fromIndex
-    /* Below: even if we searched for vaild
-     "Name = " the below line finds first space after start of "Name = " namely "Name|= " where | is index
-     by search for next ' ' after already start index  of this sequence
-    */
-    //let iNameAssgSeqEnd = gcln.indexOf(" ", iNameAssgSeqStart);
-    let NameString = gcln.substring(fromIndex, iAssignmentToken);
-
-    let iValStart = iAssignmentToken + assignmentToken.length; // iVal start jumps over the " = "
-    let iEnd = gcln.indexOf(" ", iValStart + 1); //search for next ' ' after start of numeric value(min one digit) 
-    if (iEnd < 0) {
-        iEnd = gcln.length //we cannot find next ' ' -> numeric value ends the line
-    }
-    let strv = gcln.substring(iValStart, iEnd);
-    let ob = {
-        n: NameString.toLowerCase(),
-        strv: strv,
-        nexti: iEnd === gcln.length ? null : iEnd + 1, //return null if we reached string end, else return last index (1 to jump over the space)
-    }
-    return ob
-}
-
-function getAllVars(gcln, startIndex = 0, cur, debug) {
-    let paramsR = {};
-    let nexti = startIndex
-    for (let ci = 0; ci <= gcln.length && nexti !== null; ci += 4) {
-        let t1 = getNextAssignment_Name_Value_nexti(gcln, nexti)
-
-        nexti = t1.nexti;
-        let numv = parseFloat(t1.strv);
-        if (isNaN(numv)) {
-            console.error('NaN in dunamic params not sure what to do(dict with cur for IC() ?)')
-            if (t1.strv.startsWith("IC(")) {
-                nv = parseFloat(strv.substring(3, strv.length - 1));
-                if (t1.n in cur) {
-                    let curV = cur[t1.n]
-                    numv = curV + nv
-                }
-            }
-        }
-        paramsR[t1.n] = numv
-
-    }
-    // if (debug) say(paramsR)
-    return paramsR
-}
 
 function getBetween(gcln, cmd1, cmd2, curV) {
     let iStart = gcln.indexOf(cmd1) + cmd1.length
@@ -269,9 +212,7 @@ function getBetween(gcln, cmd1, cmd2, curV) {
     return Numv;
 }
 
-function move(...x) {
-    blocks.move(...x)
-}
+
 
 function groupSectionsInBlocks(sar) {
     let blocks = [];
@@ -292,6 +233,11 @@ function groupSectionsInBlocks(sar) {
         }
         if (s.typ === OTHER) {
             // say(s)
+        }
+        // say(s)
+        if (lastBind < 0) {
+            alert("movement before first block!")
+            continue
         }
         blocks[lastBind].push(s)
     }
@@ -681,26 +627,6 @@ function renumberSections(sectionsOrBlpcks) {
 
 }
 
-function addSection(cur, typ, onoffevapState, params, gcl, cmdstr) {
-    let hadLineNo = cur.n !== null;
-    let ob = {
-        typ: typ,
-        onoffevap: onoffevapState,
-        params: params,
-        N: cur.n,
-        hadN: hadLineNo,
-        B: cur.b,
-        gc: gcl,
-        cmdstr: cmdstr,
-    }
-    if (Object.values(params).some(isNaN)) {
-        console.error(cur.n, "NOT stopping but line with NaN", [typ, params, cur.n, gcl])
-    }
-
-    global_points.push(ob)
-
-    return ob
-}
 
 
 function getlineNo(gcl, cur) {
@@ -732,16 +658,112 @@ function getlineNo(gcl, cur) {
     //BLock number etc. i can make sequence that has no params and is ignored by maths later
 }
 
-function interpretGCode(gCode) {
+
+
+
+
+function getNextAssignment_Name_Value_nexti(gcln, fromIndex, assignmentToken = " = ") {
+    if (fromIndex === null) {
+        throw Error("Bbb :no null allowed to prevent infinite loop")
+    }
+    gcln = gcln.trim()
+    let iAssignmentToken = gcln.indexOf(assignmentToken, fromIndex);
+    if (iAssignmentToken < 0) return false;
+    //let NameAssgSeqString = gcln.substring(fromIndex, iAssignmentToken)
+    let minnumvallen = 2
+    //let iNameAssgSeqStart = gcln.indexOf(NameAssgSeqString, fromIndex); //search for "Rxx = " after fromIndex
+    /* Below: even if we searched for vaild
+     "Name = " the below line finds first space after start of "Name = " namely "Name|= " where | is index
+     by search for next ' ' after already start index  of this sequence
+    */
+    //let iNameAssgSeqEnd = gcln.indexOf(" ", iNameAssgSeqStart);
+    let NameString = gcln.substring(fromIndex, iAssignmentToken);
+
+    let iValStart = iAssignmentToken + assignmentToken.length; // iVal start jumps over the " = "
+    let iEnd = gcln.indexOf(" ", iValStart + 1); //search for next ' ' after start of numeric value(min one digit) 
+    if (iEnd < 0) {
+        iEnd = gcln.length //we cannot find next ' ' -> numeric value ends the line
+    }
+    let strv = gcln.substring(iValStart, iEnd);
+    let ob = {
+        n: NameString.toLowerCase(),
+        strv: strv,
+        nexti: iEnd === gcln.length ? null : iEnd + 1, //return null if we reached string end, else return last index (1 to jump over the space)
+    }
+    return ob
+}
+
+function getAllVars(gcln, startIndex = 0, cur, lineNumber) {
+    let paramsR = {};
+    let nexti = startIndex
+    for (let ci = 0; ci <= gcln.length && nexti !== null; ci += 4) {
+        let t1 = getNextAssignment_Name_Value_nexti(gcln, nexti)
+
+        nexti = t1.nexti;
+        let numv = parseFloat(t1.strv);
+        if (isNaN(numv)) {
+            console.error('NaN in dunamic params not sure what to do(dict with cur for IC() ?) line:', gcln)
+            if (t1.strv.startsWith("IC(")) {
+                let nv = parseFloat(t1.strv.substring(3, t1.strv.length - 1));
+                say(t1.n, nv)
+                if (t1.n in cur) {
+
+                    let curV = cur[t1.n]
+                    say("is in cur")
+                    numv = curV + nv
+                    say("lineNo", lineNumber, "var", t1.n, "is in cur:", cur[t1.n], "after adding:", numv)
+                }
+            }
+        }
+        paramsR[t1.n] = numv
+
+    }
+    // if (debug) say(paramsR)
+    return paramsR
+}
+
+
+function addSection(cur, typ, onoffevapState, params, gcl, cmdstr) {
+    let hadLineNo = cur.n !== null;
+    let ob = {
+        typ: typ,
+        onoffevap: onoffevapState,
+        params: params,
+        N: cur.n,
+        hadN: hadLineNo,
+        B: cur.bln,
+        gc: gcl,
+        cmdstr: cmdstr,
+    }
+    if (Object.values(params).some(isNaN)) {
+        console.error(cur.n, "NOT stopping but line with NaN", [typ, params, cur.n, gcl])
+    }
+    Object.keys(cur).forEach(keyString => {
+        if (keyString in params) {
+            cur[keyString] = params[keyString]
+        }
+    })
+    cur.global_points.push(ob)
+
+    return ob
+}
+
+
+
+
+
+
+function interpretGCode(gCode, global_points) {
     const gCodeArray = gCode.split(/\r?\n/);
     let cur = {
+        global_points: global_points,
         x: 0,
-        y: null,
+        y: 0,
+        z: 0,
         n: 0,
-        b: 0,
+        bln: 0,
     }
 
-    global_points = []
 
 
     let GmodalState = 0;
@@ -786,15 +808,37 @@ function interpretGCode(gCode) {
             block_no = gcln.substring(blockStartInd + BLOCK_START.length, bniend)
             block_no = parseInt(block_no)
             // console.log(block_no, gcln)
-            cur.b = block_no
+            cur.bln = block_no
             addSection(cur, BLOCK_START, GmodalState, {
                 block_no
             }, gcln)
             // addSection(cur,[GmodalState, GmodalState], [x, y], gcln)
             // cur.x = x;
             // cur.y = y;
+        } else if (gcln.startsWith(TC_STARTPOS2)) { //// TODO TC_CIRCLE.cmd
+            //// TODO TC_CIRCLE.len
+            paramsstr = gcln.substring(TC_STARTPOS2.length + 1, gcln.length - 1).split(',', 6);
+            let paramsar = paramsstr.map(parseFloat)
+            let [x, y, z, b, c, correction] = paramsar;
+            let paramsob = {
+                x,
+                y,
+                z,
+                b,
+                c,
+                correction
+            };
+            if (paramsar.some(isNaN)) {
+                //TODO create IC( AC( procedure that can be called quickly
+                throw Error(["possible IC() AC() in parameters! not yet supported !", cur.n, paramsob, gcln].join(" "))
+                console.warn(cur.n, "possible IC()")
+            }
+            say("Startpos2 found", lineNumber)
+            arrr = addSection(cur, TC_STARTPOS2, 0, paramsob, gcln)
+            //keep it simple
+            //draw a star (ctx.text or smth)
         } else if (gcln.startsWith(CIP)) {
-            let paramsCIP = getAllVars(gcln, CIP.length + 1, cur, true)
+            let paramsCIP = getAllVars(gcln, CIP.length + 1, cur, lineNumber)
             // TODO pozniej optymizuj czukaj indexu raz getBetween powtarza czynnosc
             arrr = addSection(cur, CIP, GmodalState, paramsCIP, gcln)
             // addSection(cur,GmodalState, [x2, y2], gcln)
@@ -804,7 +848,7 @@ function interpretGCode(gCode) {
             let cmdstr = gcln.substring(0, istartforvars)
             // say(cmdstr)
             if (istartforvars < 0) throw alert(cur.n + " N no normal Gcode need some space;)")
-            let params = getAllVars(gcln, istartforvars + 1, cur)
+            let params = getAllVars(gcln, istartforvars + 1, cur, lineNumber)
 
             addSection(cur, G_, GmodalState, params, gcln, cmdstr)
 
@@ -815,7 +859,9 @@ function interpretGCode(gCode) {
             let kerf = paramsstr[3];
             let cutsevapsorwhat = {
                 '100': 1,
-                '500': 2
+                '500': 2,
+                '200': 1,
+                '300': 1
             } [kerf]
             // TODO GET here first number
             // console.log("ON--------------------------------------------------------ON")
@@ -840,7 +886,9 @@ function interpretGCode(gCode) {
             };
             let cutsevapsorwhat = {
                 '100': 1,
-                '500': 2
+                '500': 2,
+                '200': 1,
+                '300': 1
             } [kerf]
 
 
@@ -878,7 +926,9 @@ function interpretGCode(gCode) {
             }
             let cutsevapsorwhat = {
                 '100': 1,
-                '500': 2
+                '500': 2,
+                '200': 1,
+                '300': 1
             } [kerf]
 
             /*
@@ -911,7 +961,7 @@ function interpretGCode(gCode) {
             //draw a star (ctx.text or smth)
         } else if (gcln.startsWith(R)) {
 
-            let Rparams = getAllVars(gcln, 0, cur)
+            let Rparams = getAllVars(gcln, 0, cur, lineNumber)
             /*
                 
             R1 = 548.74 R2 = 1854.13 R3 = -207.00 R4 = 0.00 R5 = 0.00 R11 = 0.00 R26 = 12.00
@@ -932,7 +982,7 @@ function interpretGCode(gCode) {
             addSection(cur, OTHER, GmodalState, {}, gcln)
         }
     }
-    return global_points;
+    return cur.global_points;
 }
 
 function sectionToGcode(s) {
@@ -1060,6 +1110,7 @@ function translateSection(s, offsetVector) {
     if (s.typ in NOT_OFFSETABLE_CMDS) return s;
     let nus = JSON.parse(JSON.stringify(s))
     let nups = nus.params;
+    say(nus)
     nups.select = false;
     nus.B = null;
     nus.N = null;
@@ -1075,7 +1126,7 @@ function translateSection(s, offsetVector) {
         nups.r1 = olps.r1 + offsetVector.x;
         nups.r2 = olps.r2 + offsetVector.y;
     }
-    // let nus = Object.assign({}, s)
+    // let nus = Obj  ect.assign({}, s)
     nus.params = nups;
     return nus;
 }
@@ -1340,12 +1391,15 @@ function drawSection(section, pen) {
         }
         return
     }
+    if (s.typ == TC_STARTPOS2) {
+        ctx.font = "3px sans-serif";
+        ctx.fillText("STARTPOS2", pen.x, pen.y + currentLineWidth * 7);
 
-
-    if (typ == G_) {
+    } else if (typ == G_) {
         // console.log(s.N)
         ctx.lineWidth = s.select ? currentLineWidth * 2 : currentLineWidth;;
         ctx.strokeStyle = s.select ? colorSelected : s.bad ? s.color : getStrokeStyle(s.onoffevap, s.typ);
+        // say(s.onoffevap, s.N, s.gc)
         ctx.setLineDash(getDashStyle(s.onoffevap, s.typ))
         ctx.beginPath();
         ctx.moveTo(pen.x, pen.y);

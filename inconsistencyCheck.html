@@ -20,12 +20,17 @@
     }
 
     #controls {
+        user-select: none;
         position: fixed;
-        bottom: 0vh;
-        right: 0vw;
+        top: 20vh;
+        left: 20vw;
         background-color: rgba(190, 230, 255, .9);
         transform: scale(1);
         z-index: 999;
+    }
+
+    #progfnm {
+        user-select: all;
     }
 
 
@@ -79,14 +84,28 @@
         </fieldset>
         <fieldset>
             <legend>Edit</legend>
-            <button onclick="reverseAllBlocks(1)">reverse blocks</button>
-            <button onclick="MakeRowUI()">make Row in Y</button>
-            <button title="1.renumbers blocks (so numbering follows their order of execution)
+            <BR> <button onclick="MakeRowUI()">make Row in Y</button>
+            <BR> <button onclick="reverseAllBlocks(1)">reverse blocks</button>
+            <BR> <button onclick="moveSelectionInTimeUI(-1)">move Selection -1 Block
+            </button>
+            <button onclick="moveSelectionInTimeUI(1)">move Selection +1 Block</button>
+            <BR> <button title="1.renumbers blocks (so numbering follows their order of execution)
                 2. renumbers lines 
                 3. modifies LST headers to remain consistent with the Trumpf spec" onclick=" DownloadGcode()">Save
                 Gcode</button>
-            <button onclick=" deleteSelectedBlocksRange()">deleteSelectedBlocksRange</button>
+            <BR> <button onclick=" deleteSelectedBlocksRange()">deleteSelectedBlocksRange</button>
+            <fieldset>
+                <legend>Macro Replace</legend>
 
+                <input title="select any file that supports Trumpf style blocks and syntax." type="file"
+                    id=macroFileInput onchange="loadMacro()">
+
+                <BR> <button title="replacement takes away the originial block and 
+                    replaces it with blocks from macro calculating the coordinates incrementally
+                    relative to last coordinates(endpoint) in replaced block "
+                    onclick="replaceBlocksWithAMacroUI()">Replace
+                    Selected w/Macro</button>
+            </fieldset>
         </fieldset>
 
         <fieldset>
@@ -102,6 +121,14 @@
             Currently <span id="trimLengthSpan">0</span> Blocks selected
 
             <fieldset>
+                <legend>shift whole selection(useful if non-continuous)</legend>
+
+                <button id="" onclick="shiftSelectionUI(-1)">- 1 Block</button>
+
+                <button id="" onclick="shiftSelectionUI(1)">+ 1 Block</button>
+
+            </fieldset>
+            <fieldset>
                 <legend>Block Selection start &#x02912</legend>
 
                 <button id="prevBlockStartTrimFBtn" onclick="prevBlockStartTrimBtnClick()">- &#x02912</button>
@@ -110,7 +137,7 @@
                 Original Block No: <span id="StartBlockspan">__</span>
             </fieldset>
             <fieldset>
-                <legend>Block Selection end &#x02913</legend>
+                <legend>Block Selection end &#x2191 &#x02913</legend>
 
                 <button id="prevBlockEndTrimFBtn" onclick="prevBlockEndTrimBtnClick()">- &#x02913</button>
                 <input id="EndTrimManual" value="0" onchange="set_EndTrim()">
@@ -136,6 +163,19 @@
         </div>
 </pre>
             <script>
+
+                // const templateString = "Hello ${this.name}!";
+                // const templateVars = {
+                //     name: "world"
+                // }
+
+                // const fillTemplate = function (templateString, templateVars) {
+                //     return new Function("return `" + templateString + "`;").call(templateVars);
+                // }
+
+                // console.log(fillTemplate(templateString, templateVars));
+
+
                 time_Start = 0;
                 textFromFileLoaded = ''
                 fnm = '';
@@ -195,7 +235,10 @@
 
             </pre>
             <script>
+                macroSections = []
+                macroBlocks = []
                 textFromFileLoaded = '';
+                loadedMacroText = '';
                 text = '';
                 sections = [];
                 StartTrim = 0;
@@ -248,34 +291,35 @@
                     fileReader.readAsText(fileToLoad, "UTF-8");
                 }
 
+
+
+
+
                 window.onload = _ => {
 
                     say(3);
                     fnm =
-                        // "one.txt"
-                        // "stencils.LST"
-                        // "MODstencils.LSTMOD.txt"
-                        // "STENCILScorrectorder.LST"
-                        // "PRICCP0040001.LST"
-                        // "MODPRICCP0040001.LSTMOD.txt"
-                        //"P83931_NONEQUIP003_LH21.LST"
-                        //"P83932_SINGLEQUIP003_RH22.LST"
-                        // "PRICCP0059001.LST"
-                        "PRICCP0059001.LST"
-                    // "onepart.LST"
-                    //"PRICCP0027001.LST"
-                    //"PRICCP0076001.LST"
+                        // "STENCILSX2.LST"
+                        "STENCILSROWSNU.LST"
+
+
                     fetch(fnm)
                         .then(r => r.text())
                         .then(t => { say(4); textFromFileLoaded = t; startDo() })
                 }
                 blocks = [];
                 function startDo() {
+
+                    profiles = null
+                    blocks = null
+                    sections = []
+
+                    blockselection = null;
                     say("started separating gcode");
                     text = textFromFileLoaded;
                     let indStart = text.indexOf(END_OF_HEADER)
                     if (indStart < 0) {
-                        return say(`LST FILE missing \"${END_OF_HEADER}}\" string`)
+                        return say(`LST FILE missing \"${END_OF_HEADER}\" string`)
                     }
                     indStart = indStart + END_OF_HEADER.length
                     let indEnd = text.indexOf(END_OF_PROGRAM)
@@ -291,7 +335,8 @@
                     text = text.substring(indStart, indEnd)
                     say("finished separating gcode");
                     progfnm.innerText = fnm
-                    sections = interpretGCode(text)
+                    global_points = []
+                    sections = interpretGCode(text, global_points)
                     blocks = groupSectionsInBlocks(sections)
                     // blocks = RenumberProgram(blocks)
                     StartTrim = 0
@@ -309,6 +354,17 @@
                     // outputGcodeStr = outputGcode(blocks)
 
                     // AutoMetablock2()
+                    //                     setMacroFromString(`N30;==================== BLOCK_START 1 ===============
+                    // N40; LEAD_IN_START
+                    // ;ENTRY_LASER:
+                    // BLOCK_1:
+                    // N50 G01 X = 0 Y = 0 Z = -197.00 B = 0.00 C = 0.00 F = 173000
+                    // N60; LEAD_IN_END
+                    // N70 R1 = 0 R2 = 0 R3 = -207.00 R4 = 0.00 R5 = 0.00 R11 = 0.00 R26 = 12.00
+                    // N80 TC_CIRC2(5,2.5,0.50,9,10,100,"SS1MM")
+                    // N90;==================== BLOCK_END ======================`)
+                    // shiftSelection(-1)
+                    // replaceBlocksWithAMacroUI()
                     // drawFromPoints(blocks, true)
 
                     // console.log(profiles)
@@ -366,8 +422,13 @@
                     Block_select_set(metablock1, true)
                 }
 
+                if (typeof Array.prototype.move === "undefined") {
+                    Array.prototype.move = function (from, to, howMany = 1) {
+                        return this.splice(to, 0, ...this.splice(from, howMany)), this
+                    }
+                }
 
-                function AutoMetablock2() {
+                function findProfiles() {
                     profiles = findBiggestBboxesAndTheirIndices(blocks)//findRepeatingSequenceInBlocks(blocks)
                     // Block_select_set(blocks[profiles.i], true)
                     if (!profiles) {
@@ -381,15 +442,98 @@
                         say(blocks)
                         say(profiles)
                         let Bs = profiles.map(x => x.block)
+                        profiles = Bs
                         say("Bs:", Bs)
-                        // metaBlock_select_set(Bs, true)
-                        // drawFromPoints(blocks)
+                        metablock_select_set(Bs, true)
+                        trimLengthSpan.innerText = profiles.length + " (non-continuous)"
+                        drawFromPoints(blocks)
+
+
+                        profilesindices = profiles.map(pr => blocks.indexOf(pr))
+
                         //swal.fire("these are the largest blocks(probably profiles):" + Bs)
                         /*
                         metablocks = splitByMetablock(metablock1, blocks)
                         mbinconsistencies = checkMetablockConsistency(metablock1, metablocks)
                         */
                     }
+                }
+
+                function AutoMetablock2() {
+                    findProfiles()
+                    /*TODO assume easy
+                    it always starts with not profile
+                    small small BiggerThenlastone
+                    smaller than last one
+                    smaller than last one
+                    TODO 2 get bboxes and sort above non repeating metablocks by its profile bbox minY and avery some number every minX
+                    */
+
+                }
+
+                function loadMacro() {
+
+                    time_Start = Date.now()
+                    say("started reading")
+                    var macrofileToLoad = macroFileInput.files[0];
+                    window.macrofileToLoad = macrofileToLoad
+                    macrofnm = window.macrofileToLoad.name
+
+                    var macrofileReader = new FileReader();
+                    macrofileReader.onload = function (fileLoadedEvent) {
+                        loadedMacroText = fileLoadedEvent.target.result;
+                        setMacroFromString(loadedMacroText);
+                    };
+
+                    macrofileReader.readAsText(macrofileToLoad, "UTF-8");
+                }
+
+                function setMacroFromString(loadedMacroText) {
+                    macroPoints = []
+                    macroSections = interpretGCode(loadedMacroText, macroPoints)
+                    macroSectionsOriginal = JSON.parse(JSON.stringify(macroSections))
+                    macroBlocks = groupSectionsInBlocks(macroSections)
+                    macroBlocksOriginal = JSON.parse(JSON.stringify(macroBlocks))
+                }
+
+                function replaceBlocksWithAMacroUI() {
+                    replaceBlocksWithAMacro(blockselection)
+                }
+
+                function replaceBlocksWithAMacro(blocksToReplace) {
+                    if (!macroSections.length) { return swal.fire("load macro file first") }
+                    blocksToReplace.forEach(blockToReplace => {
+
+                        reverted = [...blockToReplace].reverse();
+                        lastcoordsi = null;
+                        hascoords = reverted.some((s, i) => {
+                            if (s.params && s.params.x && s.params.y) {
+                                lastcoordsi = i
+                                return true;
+                            }
+                        });
+                        if (!hascoords) {
+                            swal.fire(blockToReplace._B + " block has no coordinates to use for macro")
+                        }
+
+                        endpoint = reverted[lastcoordsi]
+                        base_x = endpoint.params.x
+                        base_y = endpoint.params.y
+                        offsetVector = { x: base_x, y: base_y }
+                        say({ offsetVector, macroBlocksOriginal })
+
+                        // copymovetranslateBlocksWhere(macroBlocksOriginal,where,offsetVector,targetBlocksArray)
+                        macroInstanceBlocks = [translateBlockCopy(macroBlocksOriginal[0], offsetVector)]
+
+
+                        // macroSections = interpretGCode(text, macroPoints)
+                        // macroBlocks = groupSectionsInBlocks(macroSections)
+                        oldindexofremovedblock = blocks.indexOf(blockToReplace);
+                        say({ oldindexofremovedblock })
+
+                        blocks.splice(oldindexofremovedblock, 1, ...macroInstanceBlocks);
+                    })
+                    drawFromPoints(blocks)
                 }
 
 
@@ -531,19 +675,39 @@
 
 
 
+                function shiftSelectionUI(dir) {
+                    shiftSelection(dir)
+                    drawFromPoints(blocks)
+                }
 
 
 
 
 
+                function shiftSelection(dir) {
+                    let savedblockselection = blockselection.slice(0, blockselection.length - 1)
+                    metablock_select_set(blocks, false)
+                    nuSel = []
+                    savedblockselection.forEach(b => {
+                        let bi = blocks.indexOf(b);
+                        let nbi = bi + dir;
+                        nuSel.push(blocks[nbi])
+                    })
+                    metablock_select_set(nuSel, true)
+
+                }
+
+
+                function moveSelectionInTime(dir) {
+                    blockselection.forEach(p => { let pi = blocks.indexOf(p); let holei = pi + dir; blocks.move(holei, pi, 1) })
+                }
 
 
 
-
-
-
-
-
+                function moveSelectionInTimeUI(dir) {
+                    blockselection.forEach(p => { let pi = blocks.indexOf(p); let holei = pi + dir; blocks.move(holei, pi, 1) })
+                    drawFromPoints(blocks)
+                }
 
 
 
@@ -593,13 +757,13 @@
 
                 //TODO make B_to_I I_to_B updated dicts or funcs
 
-                function copymovetranslateBlocksWhere(blocksToCopyMove, where, offsetVector = defOffsetVector) {
+                function copymovetranslateBlocksWhere(blocksToCopyMove, where, offsetVector = defOffsetVector, targetBlocksArray = blocks) {
                     let wh = where;
                     let nubs = blocksToCopyMove.map(b => {
                         return translateBlockCopy(b, offsetVector)
                     })
-                    let wi;
-                    if (isNaN(parseInt(where))) {
+                    let wi = parseInt(where)
+                    if (isNaN(wi)) {
                         wi = wh === "start" ? 0 :
                             wh === "end" ? blocks.length :
                                 wh === "before copied" ? (blocks.indexOf(blocksToCopyMove[0])) :
@@ -677,8 +841,24 @@
                 }
 
                 function selectSimilarBlocks(tol) {
+                    say({ tol })
                     //TODO NOW
-
+                    if (blockselection.length > 1) {
+                        return swal.fire("select one block only, multiblock similarity not yet supported.")
+                    }
+                    block1 = blockselection[0]
+                    bbox1 = calcBoundBox(block1, s => s.onoffevap !== 0)
+                    let similarBlocks = []
+                    blocks.forEach(block2 => {
+                        let bbox2 = calcBoundBox(block2, s => s.onoffevap !== 0)
+                        let nSimSizeB = Bbox1SimilarSizeBBox2(bbox1, bbox2, tol)
+                        if (nSimSizeB) {
+                            similarBlocks.push(block2)
+                        }
+                    })
+                    metablock_select_set(blocks, false)
+                    metablock_select_set(similarBlocks, true)
+                    drawFromPoints(blocks)
                 }
 
                 function selectEverythingBetweenTwoBlocks(tol) {
@@ -692,7 +872,8 @@
                 }
 
 
-                const ops = { RepeatBlocksinAxis, deleteSelectedBlocksRange, reverseAllBlocks, deleteBlocks, deleteBlockByBlockNumbers, selectBlocks, copymovetranslateBlocksWhere, getBlockByBNumber }
+
+                const ops = { moveSelectionInTime, RepeatBlocksinAxis, deleteSelectedBlocksRange, reverseAllBlocks, deleteBlocks, deleteBlockByBlockNumbers, selectBlocks, copymovetranslateBlocksWhere, getBlockByBNumber }
 
 
                 //noontz
@@ -721,6 +902,8 @@
 
 
             <script>
+                var dragged = false
+                var mousedowned = false;
                 window.addEventListener('load', function () {
 
                     let obj = draggableCorner
@@ -746,6 +929,8 @@
                         }
                     }, true)
 
+
+
                     obj.addEventListener('mydragevent', function (event) {
                         event.preventDefault();
                         moveControls(event);
@@ -770,6 +955,24 @@
 
                 })
 
+                window.addEventListener('mousedown', function (event) {
+                    mousedowned = true;
+                    dragged = false
+                    moveControls(event);
+                }, false)
+                window.addEventListener('mousemove', function (event) {
+
+                    if (mousedowned) {
+                        dragged = true
+                        moveControls(event)
+                    }
+                }, true)
+                window.addEventListener('mouseup', function () {
+                    mousedowned = false;
+                    if (dragged == true) {
+                        return
+                    }
+                }, true)
 
                 function moveControls(event) {
 
@@ -789,23 +992,24 @@
                         Ey < 100 ? Ey = 100 : 0;
 
 
+                        let parel = event.target.parentElement
+                        if (parel) {
+                            Tstyle = parel.style;
 
-                        Tstyle = event.target.parentElement.style;
-                        TzoomF = (Tstyle.zoom.replace("%", "") / 100).toFixed(2);
+                            TzoomF = (Tstyle.zoom.replace("%", "") / 100).toFixed(2);
 
 
 
-                        eZ.ctrls.cX = Tstyle.left = (Ex / TzoomF).toFixed(2) + 'px';
-                        eZ.ctrls.cY = Tstyle.top = (Ey / TzoomF).toFixed(2) + 'px';
+                            eZ.ctrls.cX = Tstyle.left = (Ex / TzoomF).toFixed(2) + 'px';
+                            eZ.ctrls.cY = Tstyle.top = (Ey / TzoomF).toFixed(2) + 'px';
+
+                        }
 
                         // console.log();
 
 
                         //event.target.innerText="↹:\n"+ctrls.cX+"\n"+ctrls.cY;
-                    } else {
-                        alert(touch);
                     }
-
                 }
                 var eZ = {
                     ctrls: {
