@@ -236,7 +236,7 @@ function groupSectionsInBlocks(sar) {
         }
         // say(s)
         if (lastBind < 0) {
-            alert("movement before first block!")
+            // alert("movement before first block!")
             continue
         }
         blocks[lastBind].push(s)
@@ -860,6 +860,7 @@ function interpretGCode(gCode, global_points) {
             let cutsevapsorwhat = {
                 '100': 1,
                 '500': 2,
+                '400': 2,
                 '200': 1,
                 '300': 1
             } [kerf]
@@ -887,6 +888,7 @@ function interpretGCode(gCode, global_points) {
             let cutsevapsorwhat = {
                 '100': 1,
                 '500': 2,
+                '400': 2,
                 '200': 1,
                 '300': 1
             } [kerf]
@@ -927,6 +929,7 @@ function interpretGCode(gCode, global_points) {
             let cutsevapsorwhat = {
                 '100': 1,
                 '500': 2,
+                '400': 2,
                 '200': 1,
                 '300': 1
             } [kerf]
@@ -1400,6 +1403,7 @@ function drawSection(section, pen) {
         ctx.lineWidth = s.select ? currentLineWidth * 2 : currentLineWidth;;
         ctx.strokeStyle = s.select ? colorSelected : s.bad ? s.color : getStrokeStyle(s.onoffevap, s.typ);
         // say(s.onoffevap, s.N, s.gc)
+        window.sssss = s
         ctx.setLineDash(getDashStyle(s.onoffevap, s.typ))
         ctx.beginPath();
         ctx.moveTo(pen.x, pen.y);
