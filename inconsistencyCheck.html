@@ -85,6 +85,8 @@
         <fieldset>
             <legend>Edit</legend>
             <BR> <button onclick="MakeRowUI()">make Row in Y</button>
+            <BR> <button onclick="MakeLoopUI()">make a LOOP(grid nesting)</button>
+            WIP feature : ability to reopen and simulate looped file
             <BR> <button onclick="reverseAllBlocks(1)">reverse blocks</button>
             <BR> <button onclick="moveSelectionInTimeUI(-1)">move Selection -1 Block
             </button>
@@ -256,7 +258,9 @@
                     saveText(str, fnm + "blankEZreport.txt")
                 }
 
-                function DownloadGcode() {
+
+                function operateOnTransformedLSTParts(assembleFunc) {
+
                     let fnNC = fnm.replace('.LST', '').toUpperCase();
                     let nufnm = fnNC + "X"
                     let msg = "save as (LST headers contain the output filename so they will be changed to suit):"
@@ -268,9 +272,19 @@
                     let nu_LST_headers = global_LST_headers.replace(regnm, nufnm)
                     blocks = RenumberProgram(blocks)
                     outputGcodeStr = outputGcode(blocks)
+                    return assembleFunc(nufnm, nu_LST_headers, outputGcodeStr, global_LST_footers)
 
-                    str = [nu_LST_headers, outputGcodeStr, global_LST_footers].join("\n")
-                    saveText(str, nufnm + ".LST")
+                }
+
+
+
+                function DownloadGcode() {
+                    operateOnTransformedLSTParts(
+                        (nufnm, nu_LST_headers, outputGcodeStr, global_LST_footers) => {
+                            str = [nu_LST_headers, outputGcodeStr, global_LST_footers].join("\n")
+                            saveText(str, nufnm + ".LST")
+                        })
+
                 }
 
 
@@ -300,8 +314,8 @@
                     say(3);
                     fnm =
                         // "STENCILSX2.LST"
-                        "STENCILSROWSNU.LST"
-
+                        // "STENCILSROWSNU_L2.LST"
+                        "GASKETTEST.LST"
 
                     fetch(fnm)
                         .then(r => r.text())
@@ -348,7 +362,7 @@
                     selectBlocks(0, EndTrim)
                     blocks.flat().forEach(s => s.select = false)
                     trimLengthSpan.innerText = blocks.length + " (not highlighting)"
-
+                    // MakeLoopUI()
                     //test:
 
                     // outputGcodeStr = outputGcode(blocks)
@@ -362,7 +376,7 @@
                     // N60; LEAD_IN_END
                     // N70 R1 = 0 R2 = 0 R3 = -207.00 R4 = 0.00 R5 = 0.00 R11 = 0.00 R26 = 12.00
                     // N80 TC_CIRC2(5,2.5,0.50,9,10,100,"SS1MM")
-                    // N90;==================== BLOCK_END ======================`)
+                    // N90;======\============== BLOCK_END ======================`)
                     // shiftSelection(-1)
                     // replaceBlocksWithAMacroUI()
                     // drawFromPoints(blocks, true)
@@ -795,11 +809,20 @@
                     drawFromPoints(blocks)
                 }
 
-                function HowManyWillFitY(blocks, maxY = 1250, dist = 5) {
-                    let bbx = calcBoundBox(blocks.flat())
-                    let nuzero = bbx.maxY - dist // 454.93
+                function HowManyWillFitY(blocks, maxY = 1250, dist = 5, bbx) {
+                    bbx = calcBoundBox(blocks.flat(), s => s.onoffevap != 0)
+                    let nuzero = bbx.maxY + dist // 454.93
                     let repSize = bbx.rangeY + dist
                     let howManyFit = Math.floor(maxY / repSize)
+                    return howManyFit
+                }
+
+                function HowManyWillFitX(blocks, maxX = 1250, dist = 5, bbx) {
+
+                    bbx = calcBoundBox(blocks.flat(), s => s.onoffevap != 0)
+                    let nuzero = bbx.minX - dist // 454.93
+                    let repSize = bbx.rangeX + dist
+                    let howManyFit = Math.floor(maxX / repSize)
                     return howManyFit
                 }
 
@@ -808,6 +831,158 @@
                     let hm = HowManyWillFitY(toRepeat, maxY, dist)
                     RepeatBlocksinAxis(toRepeat, "y", hm - 1, dist);
                 }
+
+                function MakeLoopUI() {
+                    arrh = ['',
+                        '<input id="maxYinput" class="swal2-input" value="1250">',
+                        'sheet Y size   ',
+                        '<input id="distinput" class="swal2-input" value="5">',
+                        'distance/clearing between cut',
+                        '<input id="mmorrepsinput" type="checkbox" class="swal2-input">',
+                        'checkbox for input below if you want to enter value in mm instead of columns(integer)',
+                        '<input id="maxXinput" class="swal2-input" value="2">',
+                        'max X in rows tick above to enter mm '
+                    ];
+
+                    (async () => {
+
+                        const { value: strvs } = await Swal.fire({
+                            title: 'Loop Macro - repeat without creating new paths',
+                            html: arrh.join("<BR>"),
+                            focusConfirm: false,
+                            preConfirm: () => {
+                                return {
+                                    maxY: document.getElementById('maxYinput').value,
+                                    dist: document.getElementById('distinput').value,
+                                    mmorreps: document.getElementById('mmorrepsinput').checked,
+                                    maxX: document.getElementById('maxXinput').value
+                                }
+
+                            }
+                        })
+
+                        if (!strvs) return;
+                        let maxY = parseFloat(strvs.maxY)
+                        let dist = parseFloat(strvs.dist)
+                        let maxX = parseFloat(strvs.maxX)
+                        if ([isNaN(maxY), (isNaN(maxX)), isNaN(dist)].some(x => x)) return swal.fire("invalid parameter");
+                        let mmorreps = strvs.mmorreps
+
+
+
+                        let bbox =
+                            calcBoundBox(blocks.flat(), s => s.onoffevap != 0);
+                        toRepeat = blockselection;
+                        let hmy = HowManyWillFitY(toRepeat, maxY, dist)
+                        let hmx;
+                        if (mmorreps) {
+                            hmx = HowManyWillFitY(toRepeat, maxX, dist)
+                        }
+                        else {
+                            hmx = maxX
+                        }
+                        say({ bbox })
+                        let partSizeX = bbox.rangeX + dist
+                        let partSizeY = bbox.rangeY + dist
+                        let totalMaxY = hmy * partSizeY
+                        let totalMaxX = hmx * partSizeX
+                        let totalRepeatsOrParts = hmx * hmy;
+
+
+                        let STRING_definitions1 = `DEF INT CV_ROW_Y = 0 ;change if need to restart from specific row/part
+DEF INT CV_COL_X = 0 ;change if need to restart from specific column
+DEF REAL CV_START_OFFSET_X = 0 ; change if need to offset X (old SETG54(X,Y,Z)) 
+DEF REAL CV_START_OFFSET_Y = 0 ; change if need to offset Y (old SETG54(X,Y,Z))
+DEF INT CV_COL_X_LAST = ${hmx} ; change if need less columns
+DEF INT CV_ROW_Y_LAST = ${hmy} ; do not change unless using offcut (measure how many will fit first)
+DEF REAL CV_PART_SIZEY = ${partSizeY.toFixed(2)} ;do not change unless need more distance (size of part)
+DEF REAL CV_PART_SIZEX = ${partSizeX.toFixed(2)} ;do not change unless need more distance (size of part)
+`
+                        let STRING_info = `
+; this looped program cuts ${totalRepeatsOrParts} repeats/parts
+; in a grid of ${hmy} rows and ${hmx} columns  
+; total machining area is ${totalMaxY.toFixed(2)} in Y and ${totalMaxX.toFixed(2)} in X  
+; WARNING! any on-line changes to anything below these lines may result in collision
+; LOOP is created in such a way that moveaway in Z should not be needed
+; any move away lines can be added after line saying "MOVEAWAY" near the end of the program
+; changes should be performed after discussing with program author/trained staff
+; below is commented original copy of original loop settings ( alter only above lines)
+; COPY OF ORIGINAL SETTINGS:
+;`
+                        let STRING_definitionsCopy = STRING_definitions1.split("\n").join("\n;")
+                        let STRING_definitions = STRING_definitions1 + STRING_info + STRING_definitionsCopy
+
+                        let STRING_loop_logic = `
+; start of loop logic
+LOOP_LOGIC_IN:
+; for 
+;G01 Z = -100; uncomment for higher travel distance between parts normal is -197
+IF CV_COL_X > CV_COL_X_LAST:
+    GOTOF LOOP_FIN_OUT
+ENDIF
+
+LOOP_ROW_IN:
+IF CV_ROW_Y > CV_ROW_Y_LAST:
+    G01 Z = 300
+    SET_G54(CV_START_OFFSET_X + CV_PART_SIZEX * CV_COL_X, CV_START_OFFSET_Y + CV_PART_SIZEY * CV_COL_Y,0.00);
+    SETAXG54(B,0)
+    SETAXG54(C,0)
+    F = 173000
+    TC_TRAFO_OFF
+    G500
+    G01 Z = 750.00 F = 173000
+    G01 B = 0.00 C = 0.00
+    TC_TRAFO_ON("BC")
+    G54
+    GOTOF LOOP_ROW_OUT
+ENDIF
+
+;start of repeated section
+`
+                        let STRING_loop_inc = `
+;end of repeating cut, before any moveaway
+LOOP_INC_IN:
+CV_ROW_Y = CV_ROW_Y+1;
+GOTOB LOOP_LOGIC_IN
+LOOP_ROW_OUT:
+CV_ROW_Y = 0;
+CV_COL_X = CV_COL_X+1
+GOTOB LOOP_LOGIC_IN;
+LOOP_FIN_OUT:
+;MOVEAWAY and all program end sequence (MOVEAWAY) 
+SET_G54(0.00,0.00,0.00);
+G01 Z = 700;
+G01 Y = 430;
+`
+                        operateOnTransformedLSTParts(
+                            (nufnm, nu_LST_headers, outputGcodeStr, global_LST_footers) => {
+                                nu_LST_headers
+                                str = [nu_LST_headers, STRING_definitions, outputGcodeStr, global_LST_footers].join("\n")
+                                //put definitions at the very start of the program
+                                nu_LST_headers = nu_LST_headers.replace(START_TEXT, [START_TEXT, STRING_definitions].join("\n"))
+
+                                window.outLST = {
+                                    nu_LST_headers, STRING_loop_logic, outputGcodeStr, STRING_loop_inc, global_LST_footers,
+                                }
+                                outLSTstr = [nu_LST_headers, STRING_loop_logic, outputGcodeStr, STRING_loop_inc, global_LST_footers].join("\n")
+
+
+                                // Swal.fire(`remember if you need less 
+                                // parts you can always change CV_COL_X_LAST
+                                // at the start of the program. This type of repetition 
+                                // is easier to modify during on-line programming`+ JSON.stringify(strvs))
+                                saveText(outLSTstr, nufnm + ".LST")
+
+                                return;
+
+                            })
+
+
+                    })()
+
+
+                }
+
 
                 function MakeRowUI() {
                     if (!blockselection.length) {
