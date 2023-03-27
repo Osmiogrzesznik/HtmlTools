@@ -24,5 +24,5 @@ class BlankEZpurp(IPurpose):
         return oo
 
     def dh(self, me):
-        oo = '''END_OF_HEADER'''
+        oo = ''';END_OF_HEADER'''
         return oo

@@ -1148,7 +1148,14 @@ function prepForDrawing(sections) {
     //     recalculate = true
     // }
     // if (recalculate) {
-    let bbox = calcBoundBox(sections)
+    let {
+        minX,
+        minY,
+        maxX,
+        maxY,
+        rangeX,
+        rangeY
+    } = calcBoundBox(sections)
     //for info only
 
     //prepare points by offseting them to their mins 
@@ -1158,11 +1165,11 @@ function prepForDrawing(sections) {
         if (s.typ in NOT_OFFSETABLE_CMDS) return s;
         let nups = {}
         let olps = s.params
-        nups.x = (olps.x - bbox.minX + (currentLineWidth)) * -1;
-        nups.y = (olps.y - bbox.maxY - (currentLineWidth)) * 1;
+        nups.x = (olps.x - minX + (currentLineWidth)) * -1;
+        nups.y = (olps.y - maxY - (currentLineWidth)) * 1;
         if (s.typ === CIP) { // TODO TC_CIRCLE.typ
-            nups.i1 = (olps.i1 - bbox.minX + (currentLineWidth)) * -1;
-            nups.j1 = (olps.j1 - bbox.maxY - (currentLineWidth)) * 1;
+            nups.i1 = (olps.i1 - minX + (currentLineWidth)) * -1;
+            nups.j1 = (olps.j1 - maxY - (currentLineWidth)) * 1;
         }
         let nus = Object.assign({}, s)
         nus.params = nups;
@@ -1171,15 +1178,17 @@ function prepForDrawing(sections) {
     cachedoffsSections = offsSections;
 
 
-    canvas.width = (bbox.rangeX * ctx_scl) + (currentLineWidth * ctx_scl * 2);
-    canvas.height = (bbox.rangeY * ctx_scl) + (currentLineWidth * ctx_scl * 2);
+    canvas.width = (rangeX * ctx_scl) + (currentLineWidth * ctx_scl * 2);
+    canvas.height = (rangeY * ctx_scl) + (currentLineWidth * ctx_scl * 2);
 
     ctx.scale(-ctx_scl, -ctx_scl)
     obforhum = {
-        "min X:": minX,
-        "min Y:": minY,
-        "size X:": rangeX,
-        "size Y": rangeY
+        "minX:": minX.toFixed(2),
+        "minY:": minY.toFixed(2),
+        "sizeX:": rangeX.toFixed(2),
+        "sizeY:": rangeY.toFixed(2),
+        "maxX:": maxX.toFixed(2),
+        "maxY:": maxY.toFixed(2),
     }
     say(obforhum)
     global_font_size = 2 * ctx_scl
@@ -1187,7 +1196,7 @@ function prepForDrawing(sections) {
     ctx.lineWidth = currentLineWidth;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.font = global_font_size + "px sans-serif";
+    ctx.font = (global_font_size * .7) + "px sans-serif";
     let towrite = Object.entries(obforhum).forEach((xx, i) => {
         let towrite = xx.flat().join("\n");
         ctx.fillText(towrite, (-canvas.width / ctx_scl) + 2, (-canvas.height / ctx_scl + 2) + global_font_size * i);

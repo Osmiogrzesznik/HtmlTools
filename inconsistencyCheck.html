@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
     <script src="sweetalert2.all.min.js"></script>
+    <script src="gcodetojs.js"></script>
+
     <link rel="stylesheet" href="sweetalert2.min.css">
 </head>
 <style>
@@ -280,8 +282,10 @@
 
                 function DownloadGcode() {
                     operateOnTransformedLSTParts(
+
                         (nufnm, nu_LST_headers, outputGcodeStr, global_LST_footers) => {
-                            str = [nu_LST_headers, outputGcodeStr, global_LST_footers].join("\n")
+                            console.error("TODO TODO TODO TODO no semicolon before END_OF_PROGRAM monkey fix!!!")
+                            str = [nu_LST_headers, outputGcodeStr, ";" + global_LST_footers].join("\n")
                             saveText(str, nufnm + ".LST")
                         })
 
@@ -313,9 +317,10 @@
 
                     say(3);
                     fnm =
-                        // "STENCILSX2.LST"
+                        // "STENCILSL2.LST"
                         // "STENCILSROWSNU_L2.LST"
                         "GASKETTEST.LST"
+                    // "GASKETTESTX.LST"
 
                     fetch(fnm)
                         .then(r => r.text())
@@ -332,10 +337,12 @@
                     say("started separating gcode");
                     text = textFromFileLoaded;
                     let indStart = text.indexOf(END_OF_HEADER)
+                    // let indStart = text.indexOf(START_TEXT)
                     if (indStart < 0) {
                         return say(`LST FILE missing \"${END_OF_HEADER}\" string`)
                     }
                     indStart = indStart + END_OF_HEADER.length
+                    // indStart = indStart + START_TEXT.length
                     let indEnd = text.indexOf(END_OF_PROGRAM)
                     if (indEnd < 0) {
                         say(`LST FILE missing \"${END_OF_PROGRAM}\" string. Maybe Generated on old software`)
@@ -344,6 +351,19 @@
                         indEnd = indEnd
                     }
                     global_LST_headers = text.substring(0, indStart)
+                    // START_TEXT_INDEX = global_LST_headers.indexOf()
+                    // global_LST_headers_DEFS = 
+                    global_LST_headers = text.substring(0, indStart)
+
+                    let d1i = global_LST_headers.indexOf("DEF INT")
+                    let d2i = global_LST_headers.indexOf("DEF REAL")
+                    let d3i = global_LST_headers.indexOf("DEF STRING")
+
+                    let anyDefs = [d1i, d2i, d3i].some(x => x > -1)
+                    if (anyDefs) {
+                        swal.fire("file contains dynamic variables<BR> Attempting Now to parse the logic to show simulation correctly")
+
+                    }
                     global_LST_footers = text.substring(indEnd, text.length)
 
                     text = text.substring(indStart, indEnd)
@@ -917,12 +937,12 @@ DEF REAL CV_PART_SIZEX = ${partSizeX.toFixed(2)} ;do not change unless need more
 LOOP_LOGIC_IN:
 ; for 
 ;G01 Z = -100; uncomment for higher travel distance between parts normal is -197
-IF CV_COL_X > CV_COL_X_LAST:
+IF CV_COL_X > CV_COL_X_LAST
     GOTOF LOOP_FIN_OUT
 ENDIF
 
 LOOP_ROW_IN:
-IF CV_ROW_Y > CV_ROW_Y_LAST:
+IF CV_ROW_Y > CV_ROW_Y_LAST
     G01 Z = 300
     SET_G54(CV_START_OFFSET_X + CV_PART_SIZEX * CV_COL_X, CV_START_OFFSET_Y + CV_PART_SIZEY * CV_COL_Y,0.00);
     SETAXG54(B,0)
@@ -949,9 +969,18 @@ CV_ROW_Y = 0;
 CV_COL_X = CV_COL_X+1
 GOTOB LOOP_LOGIC_IN;
 LOOP_FIN_OUT:
-;MOVEAWAY and all program end sequence (MOVEAWAY) 
+;MOVEAWAY and all program end sequence 
+G01 Z = 300
 SET_G54(0.00,0.00,0.00);
-G01 Z = 700;
+SETAXG54(B,0)
+SETAXG54(C,0)
+F = 173000
+TC_TRAFO_OFF
+G500
+G01 Z = 750.00 F = 173000
+G01 B = 0.00 C = 0.00
+TC_TRAFO_ON("BC")
+G54
 G01 Y = 430;
 `
                         operateOnTransformedLSTParts(
@@ -964,7 +993,8 @@ G01 Y = 430;
                                 window.outLST = {
                                     nu_LST_headers, STRING_loop_logic, outputGcodeStr, STRING_loop_inc, global_LST_footers,
                                 }
-                                outLSTstr = [nu_LST_headers, STRING_loop_logic, outputGcodeStr, STRING_loop_inc, global_LST_footers].join("\n")
+                                console.error("TODO TODO TODO TODO no semicolon before END_OF_PROGRAM monkey fix!!!")
+                                outLSTstr = [nu_LST_headers, STRING_loop_logic, outputGcodeStr, STRING_loop_inc, ";" + global_LST_footers].join("\n")
 
 
                                 // Swal.fire(`remember if you need less 

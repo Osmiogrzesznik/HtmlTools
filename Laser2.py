@@ -15,7 +15,7 @@ MM,AT,1, 60,1,1,,,,,T
 MM,AT,1,170,1,1,,,,,T
 C
 ZA,DA,1
-DA,{NC_compat_filename},1
+DA,'{NC_compat_filename}',1
 C
 ENDE_EINRICHTEPLAN_INFO
 C
