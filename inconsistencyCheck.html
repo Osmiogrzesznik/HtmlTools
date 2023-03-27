@@ -87,7 +87,7 @@
         <fieldset>
             <legend>Edit</legend>
             <BR> <button onclick="MakeRowUI()">make Row in Y</button>
-            <BR> <button onclick="MakeLoopUI()">make a LOOP(grid nesting)</button>
+            <BR> <button onclick="MakeLoopUI()">make a LP(grid nesting)</button>
             WIP feature : ability to reopen and simulate looped file
             <BR> <button onclick="reverseAllBlocks(1)">reverse blocks</button>
             <BR> <button onclick="moveSelectionInTimeUI(-1)">move Selection -1 Block
@@ -922,8 +922,11 @@ DEF REAL CV_PART_SIZEX = ${partSizeX.toFixed(2)} ;do not change unless need more
 ; this looped program cuts ${totalRepeatsOrParts} repeats/parts
 ; in a grid of ${hmy} rows and ${hmx} columns  
 ; total machining area is ${totalMaxY.toFixed(2)} in Y and ${totalMaxX.toFixed(2)} in X  
+; EDITING:in order to edit path(Trutops) :
+; comment out two lines starting with GOTOB 
+; at the end of the program.
 ; WARNING! any on-line changes to anything below these lines may result in collision
-; LOOP is created in such a way that moveaway in Z should not be needed
+; loop is created in such a way that moveaway in Z should not be needed
 ; any move away lines can be added after line saying "MOVEAWAY" near the end of the program
 ; changes should be performed after discussing with program author/trained staff
 ; below is commented original copy of original loop settings ( alter only above lines)
@@ -934,14 +937,14 @@ DEF REAL CV_PART_SIZEX = ${partSizeX.toFixed(2)} ;do not change unless need more
 
                         let STRING_loop_logic = `
 ; start of loop logic
-LOOP_LOGIC_IN:
+LP_LOGIC_IN:
 ; for 
 ;G01 Z = -100; uncomment for higher travel distance between parts normal is -197
 IF CV_COL_X > CV_COL_X_LAST
-    GOTOF LOOP_FIN_OUT
+    GOTOF LP_FIN_OUT
 ENDIF
 
-LOOP_ROW_IN:
+LP_ROW_IN:
 IF CV_ROW_Y > CV_ROW_Y_LAST
     G01 Z = 300
     SET_G54(CV_START_OFFSET_X + CV_PART_SIZEX * CV_COL_X, CV_START_OFFSET_Y + CV_PART_SIZEY * CV_COL_Y,0.00);
@@ -954,21 +957,21 @@ IF CV_ROW_Y > CV_ROW_Y_LAST
     G01 B = 0.00 C = 0.00
     TC_TRAFO_ON("BC")
     G54
-    GOTOF LOOP_ROW_OUT
+    GOTOF LP_ROW_OUT
 ENDIF
 
 ;start of repeated section
 `
                         let STRING_loop_inc = `
 ;end of repeating cut, before any moveaway
-LOOP_INC_IN:
+LP_INC_IN:
 CV_ROW_Y = CV_ROW_Y+1;
-GOTOB LOOP_LOGIC_IN
-LOOP_ROW_OUT:
+GOTOB LP_LOGIC_IN
+LP_ROW_OUT:
 CV_ROW_Y = 0;
 CV_COL_X = CV_COL_X+1
-GOTOB LOOP_LOGIC_IN;
-LOOP_FIN_OUT:
+GOTOB LP_LOGIC_IN;
+LP_FIN_OUT:
 ;MOVEAWAY and all program end sequence 
 G01 Z = 300
 SET_G54(0.00,0.00,0.00);
