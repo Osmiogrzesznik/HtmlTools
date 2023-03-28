@@ -80,6 +80,9 @@
                 onchange="loadFileAsText()">
             <button title="saves png to file" id="downloadAsImageBtn" onclick="DownloadCanvasAsImage()">Save
                 Image</button>
+            <button title="toggles points visibility
+            points correspond to gcode lines/steps" id="downloadAsImageBtn" onclick="showpointstog()">Show/hide points
+            </button>
             <button title="saves all analysis to txt file" id="downloadReportsBtn" onclick="DownloadReports()">Save
                 Reports</button>
 
@@ -259,8 +262,11 @@
                     str = reportsAr.join('')
                     saveText(str, fnm + "blankEZreport.txt")
                 }
-
-
+                glb_show_points = true;
+                function showpointstog() {
+                    glb_show_points = !glb_show_points
+                    drawFromPoints(blocks)
+                }
                 function operateOnTransformedLSTParts(assembleFunc) {
 
                     let fnNC = fnm.replace('.LST', '').toUpperCase();
@@ -319,7 +325,8 @@
                     fnm =
                         // "STENCILSL2.LST"
                         // "STENCILSROWSNU_L2.LST"
-                        "GASKETTEST.LST"
+                        // "GASKETTEST.LST"
+                        "TOLERTEST.LST"
                     // "GASKETTESTX.LST"
 
                     fetch(fnm)

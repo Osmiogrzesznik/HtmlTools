@@ -8,7 +8,7 @@ window.onerror = (...x) => {
 }
 cur = {}
 say = console.log
-
+glb_show_points = true
 
 sa = x => say(x);
 say(2)
@@ -191,7 +191,7 @@ cur.x = 0
 cur.y = 0
 cur.n = null;
 cur.global_points = []
-var ctx_scl = 4;
+var ctx_scl = 8;
 var currentLineWidth = 0.5;
 
 
@@ -1383,7 +1383,10 @@ function drawSection(section, pen) {
     //TODO maybe here isBLock and call self recursively for each of subarrays
     let s = section
     let typ = s.typ
-
+    if (glb_show_points) {
+        ctx.fillStyle = "rgba(205,0,205)"
+        ctx.fillRect(pen.x - .3, pen.y - .3, .6, .6)
+    }
     let GmodalState = s.onoffevap
     let params = s.params
     let x = params.x;
