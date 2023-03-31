@@ -64,7 +64,9 @@
     #simspeed,
     #toleranceINP,
     #StartTrimManual,
-    #EndTrimManual {
+    #EndTrimManual,
+    #scaleInput,
+    #lineWInput {
         width: 5em;
     }
 </style>
@@ -80,11 +82,14 @@
                 onchange="loadFileAsText()">
             <button title="saves png to file" id="downloadAsImageBtn" onclick="DownloadCanvasAsImage()">Save
                 Image</button>
-            <button title="toggles points visibility
+            ? <button title="toggles points visibility
             points correspond to gcode lines/steps" id="downloadAsImageBtn" onclick="showpointstog()">Show/hide points
             </button>
             <button title="saves all analysis to txt file" id="downloadReportsBtn" onclick="DownloadReports()">Save
                 Reports</button>
+            <input id="scaleInput" value="8" onchange="set_scale()">scale
+            <input id="lineWInput" value="8" onchange="set_lw()">line width
+
 
         </fieldset>
         <fieldset>
@@ -181,7 +186,15 @@
                 // }
 
                 // console.log(fillTemplate(templateString, templateVars));
+                function set_scale() {
+                    ctx_scl = parseFloat(scaleInput.value)
+                    drawFromPoints(blocks)
+                }
 
+                function set_lw() {
+                    currentLineWidth = parseFloat(lineWInput.value)
+                    drawFromPoints(blocks)
+                }
 
                 time_Start = 0;
                 textFromFileLoaded = ''
@@ -262,7 +275,7 @@
                     str = reportsAr.join('')
                     saveText(str, fnm + "blankEZreport.txt")
                 }
-                glb_show_points = true;
+                glb_show_points = false;
                 function showpointstog() {
                     glb_show_points = !glb_show_points
                     drawFromPoints(blocks)
@@ -325,9 +338,10 @@
                     fnm =
                         // "STENCILSL2.LST"
                         // "STENCILSROWSNU_L2.LST"
-                        "GASKETTEST.LST"
+                        "DONE/EXMPLPART.LST"
+                    // "QRBCSCWD1.LST"
                     // "TOLERTEST.LST"
-                    // "GASKETTESTX.LST"
+
 
                     fetch(fnm)
                         .then(r => r.text())
@@ -335,7 +349,8 @@
                 }
                 blocks = [];
                 function startDo() {
-
+                    scaleInput.value = ctx_scl
+                    lineWInput.value = currentLineWidth
                     profiles = null
                     blocks = null
                     sections = []
@@ -916,14 +931,16 @@
                         let totalRepeatsOrParts = hmx * hmy;
 
 
-                        let STRING_definitions1 = `DEF INT CV_ROW_Y = 0 ;change if need to restart from specific row/part
-DEF INT CV_COL_X = 0 ;change if need to restart from specific column
+                        let STRING_definitions1 = `DEF INT CV_ROW_Y = 1 ;change if need to restart from specific row/part
+DEF INT CV_COL_X = 1 ;change if need to restart from specific column
 DEF REAL CV_START_OFFSET_X = 0 ; change if need to offset X (old SETG54(X,Y,Z)) 
 DEF REAL CV_START_OFFSET_Y = 0 ; change if need to offset Y (old SETG54(X,Y,Z))
 DEF INT CV_COL_X_LAST = ${hmx} ; change if need less columns
 DEF INT CV_ROW_Y_LAST = ${hmy} ; do not change unless using offcut (measure how many will fit first)
 DEF REAL CV_PART_SIZEY = ${partSizeY.toFixed(2)} ;do not change unless need more distance (size of part)
 DEF REAL CV_PART_SIZEX = ${partSizeX.toFixed(2)} ;do not change unless need more distance (size of part)
+DEF REAL CV_IX;
+DEF REAL CV_IY;
 `
                         let STRING_info = `
 ; this looped program cuts ${totalRepeatsOrParts} repeats/parts
@@ -943,18 +960,25 @@ DEF REAL CV_PART_SIZEX = ${partSizeX.toFixed(2)} ;do not change unless need more
                         let STRING_definitions = STRING_definitions1 + STRING_info + STRING_definitionsCopy
 
                         let STRING_loop_logic = `
-; start of loop logic
+; start of loop logic 
 LP_LOGIC_IN:
-; for 
+;actual coefficients are offset to count from 0
+;while displayed numbers are from 1 for intuitive operation
+CV_IX = CV_COL_X - 1
+CV_IY = CV_ROW_Y -1
+; for m
 ;G01 Z = -100; uncomment for higher travel distance between parts normal is -197
-IF CV_COL_X > CV_COL_X_LAST
+IF CV_COL_X > CV_COL_X_LAST 
+    MSG("Finished all columns :" << CV_COL_X )
     GOTOF LP_FIN_OUT
 ENDIF
 
-LP_ROW_IN:
-IF CV_ROW_Y > CV_ROW_Y_LAST
+IF CV_ROW_Y > CV_ROW_Y_LAST 
+    MSG("Finished column:" << CV_COL_X )
     G01 Z = 300
-    SET_G54(CV_START_OFFSET_X + CV_PART_SIZEX * CV_COL_X, CV_START_OFFSET_Y + CV_PART_SIZEY * CV_COL_Y,0.00);
+    TC_LASER_OFF(2)
+    G04 F = 5.0
+    SET_G54(CV_START_OFFSET_X + CV_PART_SIZEX * CV_IX, CV_START_OFFSET_Y + CV_PART_SIZEY * CV_IY,0.00);
     SETAXG54(B,0)
     SETAXG54(C,0)
     F = 173000
@@ -967,6 +991,7 @@ IF CV_ROW_Y > CV_ROW_Y_LAST
     GOTOF LP_ROW_OUT
 ENDIF
 
+MSG("Start cut column:" << CV_COL_X << " row:" << CV_ROW_Y)
 ;start of repeated section
 `
                         let STRING_loop_inc = `

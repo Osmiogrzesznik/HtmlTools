@@ -2,7 +2,7 @@ from IPurpose import IPurpose
 
 
 class LaserLST(IPurpose):
-    _TECH_TABLE = "{TECH_TABLE}"
+    _TECH_TABLE = "ST010MDN2X-0"
 
     def h(self, NC_compat_filename):
         TECH_TABLE = self._TECH_TABLE

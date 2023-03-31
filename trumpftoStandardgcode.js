@@ -8,7 +8,7 @@ window.onerror = (...x) => {
 }
 cur = {}
 say = console.log
-glb_show_points = true
+glb_show_points = false
 
 sa = x => say(x);
 say(2)
@@ -1193,16 +1193,16 @@ function prepForDrawing(sections) {
     say(obforhum)
     global_font_size = 2 * ctx_scl
     ctx.fillStyle = "black";
-    ctx.lineWidth = currentLineWidth;
+    ctx.lineWidth = currentLineWidth / ctx_scl / 2;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    ctx.font = (global_font_size * .7) + "px sans-serif";
-    let towrite = Object.entries(obforhum).forEach((xx, i) => {
-        let towrite = xx.flat().join("\n");
-        ctx.fillText(towrite, (-canvas.width / ctx_scl) + 2, (-canvas.height / ctx_scl + 2) + global_font_size * i);
+    ctx.font = (global_font_size / ctx_scl) + "px sans-serif";
+    // let towrite = Object.entries(obforhum).forEach((xx, i) => {
+    //     let towrite = xx.flat().join("\n");
+    //     ctx.fillText(towrite, (-canvas.width / ctx_scl) + 2, (-canvas.height / ctx_scl + 2) + global_font_size / ctx_scl * i);
 
-    })
-    say(towrite)
+    // })
+    // say(towrite)
 
 
     console.log(bbox)
