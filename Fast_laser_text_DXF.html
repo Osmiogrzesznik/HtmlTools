@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,14 +8,15 @@
     <script src="https://maker.js.org/target/js/browser.maker.js" type="text/javascript"></script>
     <script src="./jsonData.js" type="text/javascript"></script>
     <style>
-        #drawingArea{
-            border:1px solid red;
+        #drawingArea {
+            border: 1px solid red;
         }
     </style>
 </head>
+
 <body>
     <h1>Text to DXF Converter</h1>
-    It may looks crude , but generates valid single line 
+    It may looks crude , but generates valid single line
     stroke dxf for importing. Change desired width of full text line in mm.
     <label for="textInput">Enter Text:</label>
     <input type="text" id="textInput" placeholder="Type text here" oninput="updateDrawing()" value="r302-1Ah1.456">
@@ -32,68 +34,73 @@
         let currentModel;
         var allbb = null;
 
-        function drawText(inputText,desired_width) {
-  this.units = makerjs.unitType.Millimeter;
-    inputText = inputText.toUpperCase();
-  
-    this.models = {};
-    let msar = [];
-    let me = this;
-    let memodels = me.models;
-    let xOffset = 0;
+        function drawText(inputText, desired_width) {
+            this.units = makerjs.unitType.Millimeter;
+            inputText = inputText.toUpperCase();
 
-    
-function drawCharacter(character, x, y,idx) {
-    const glyphName = "glyph_" + character.charCodeAt(0);
-    const glyphData = jsonData[glyphName];
-
-    if (glyphData) {
-        glyphData.curves.forEach((splineData,i) => {
-            const points = splineData.points.map(point => [point[0] + x, point[1] + y]);
-       
-            let model = new makerjs.models.ConnectTheDots(false, points);
-           
-            //makerjs.model.originate(model);
-           //makerjs.model.zero(model);
-            //makerjs.model.move(model, [0, 0]);
-            //makerjs.model.rotate(model, 0, false, [x, y]);
-          lastmodel = model;
-          msar.push(model)
-            memodels["txt"+i+character+idx] = model
-            //if(i>0){
-            //memodels["full"] = makerjs.model.combineUnion(memodels.full, model);
-            //}else{
-            //memodels["full"] = model
-            //}
-        });
-    }
-}
+            this.models = {};
+            let msar = [];
+            let me = this;
+            let memodels = me.models;
+            let xOffset = 0;
 
 
-    for (let i = 0; i < inputText.length; i++) {
-        const character = inputText[i];
-        drawCharacter(character, xOffset, 0,i);
+            function drawCharacter(character, x, y, idx) {
+                const glyphName = "glyph_" + character.charCodeAt(0);
+                const glyphData = jsonData[glyphName];
 
-        // Calculate the next offset based on the bounding box
-        const boundingBox = jsonData["glyph_" + character.charCodeAt(0)].boundingbox;
-      if(lastmodel){
-       let bb = makerjs.measure.modelExtents(lastmodel);
-        console.log(bb)
-      xOffset = bb.high[0]; // 5 units offset for spacing
-      }
-      }
+                if (glyphData) {
+                    glyphData.curves.forEach((splineData, i) => {
+                        const points = splineData.points.map(point => [point[0] + x, point[1] + y]);
+
+                        let model = new makerjs.models.ConnectTheDots(false, points);
+
+                        //makerjs.model.originate(model);
+                        //makerjs.model.zero(model);
+                        //makerjs.model.move(model, [0, 0]);
+                        //makerjs.model.rotate(model, 0, false, [x, y]);
+                        lastmodel = model;
+                        msar.push(model)
+                        memodels["txt" + i + character + idx] = model
+                        //if(i>0){
+                        //memodels["full"] = makerjs.model.combineUnion(memodels.full, model);
+                        //}else{
+                        //memodels["full"] = model
+                        //}
+                    });
+                }
+            }
 
 
-    console.log(this)
-    let bb = makerjs.measure.modelExtents(lastmodel);
-    //console.log(bb)
-    var scale = desired_width / bb.high[0];
-    makerjs.model.scale(this, scale);
-    makerjs.model.zero(this);
-    allbb = makerjs.measure.modelExtents(lastmodel);
-//this.models = msar
-  
-}
+            for (let i = 0; i < inputText.length; i++) {
+                const character = inputText[i];
+                if (character == ' ') {
+                    xOffset += .3;
+                } else {
+                    drawCharacter(character, xOffset, 0, i);
+
+                    // Calculate the next offset based on the bounding box
+                    const boundingBox = jsonData["glyph_" + character.charCodeAt(0)].boundingbox;
+                    if (lastmodel) {
+                        let bb = makerjs.measure.modelExtents(lastmodel);
+                        console.log(bb)
+                        xOffset = bb.high[0]; // 5 units offset for spacing
+                    }
+                }
+
+            }
+
+
+            console.log(this)
+            let bb = makerjs.measure.modelExtents(lastmodel);
+            //console.log(bb)
+            var scale = desired_width / bb.high[0];
+            makerjs.model.scale(this, scale);
+            makerjs.model.zero(this);
+            allbb = makerjs.measure.modelExtents(lastmodel);
+            //this.models = msar
+
+        }
 
         function updateDrawing() {
             const inputText = document.getElementById('textInput').value;
@@ -114,19 +121,19 @@ function drawCharacter(character, x, y,idx) {
 
             // Convert the model to DXF
             const dxfContent = makerjs.exporter.toDXF(model);
-            
+
             // Create a Blob from the DXF content
             const blob = new Blob([dxfContent], { type: 'text/plain' });
-            
+
             // Create a download link
             const link = document.createElement('a');
             link.href = window.URL.createObjectURL(blob);
-            link.download = inputText + "_" + allbb.high[0].toFixed(0) +"x"+ allbb.high[1].toFixed(0) + 'mm.dxf';
-        
+            link.download = inputText + "_" + allbb.high[0].toFixed(0) + "x" + allbb.high[1].toFixed(0) + 'mm.dxf';
+
             // Trigger the download
             document.body.appendChild(link);
             link.click();
-            
+
             // Clean up
             document.body.removeChild(link);
         }
@@ -135,4 +142,5 @@ function drawCharacter(character, x, y,idx) {
         updateDrawing();
     </script>
 </body>
+
 </html>
