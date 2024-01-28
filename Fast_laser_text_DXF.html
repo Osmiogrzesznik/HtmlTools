@@ -30,6 +30,7 @@
         var makerjs = require('makerjs');
         let lastmodel = null;
         let currentModel;
+        var allbb = null;
 
         function drawText(inputText,desired_width) {
   this.units = makerjs.unitType.Millimeter;
@@ -40,6 +41,7 @@
     let me = this;
     let memodels = me.models;
     let xOffset = 0;
+
     
 function drawCharacter(character, x, y,idx) {
     const glyphName = "glyph_" + character.charCodeAt(0);
@@ -88,7 +90,7 @@ function drawCharacter(character, x, y,idx) {
     var scale = desired_width / bb.high[0];
     makerjs.model.scale(this, scale);
     makerjs.model.zero(this);
-
+    allbb = makerjs.measure.modelExtents(lastmodel);
 //this.models = msar
   
 }
@@ -119,7 +121,7 @@ function drawCharacter(character, x, y,idx) {
             // Create a download link
             const link = document.createElement('a');
             link.href = window.URL.createObjectURL(blob);
-            link.download = 'output.dxf';
+            link.download = inputText + "_" + allbb.high[0].toFixed(0) +"x"+ allbb.high[1].toFixed(0) + 'mm.dxf';
         
             // Trigger the download
             document.body.appendChild(link);
