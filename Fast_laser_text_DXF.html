@@ -18,12 +18,15 @@
     <h1>Text to DXF Converter</h1>
     It may looks crude , but generates valid single line
     stroke dxf for importing. Change desired width of full text line in mm.
+    <br>
     <label for="textInput">Enter Text:</label>
-    <input type="text" id="textInput" placeholder="Type text here" oninput="updateDrawing()" value="r302-1Ah1.456">
-
+<textarea id="textInput" cols="20" rows="4" placeholder="Type text here" oninput="updateDrawing()">ABC
+XY.Z
+12-34</textarea>
+<br>
     <label for="widthInput">Width Of Full Text:</label>
     <input type="number" id="widthInput" value="50" min="10" max="300" oninput="updateDrawing()">
-
+size:<span id = "infoo"></span>
     <button onclick="generateAndDownloadDXF()">Generate DXF</button>
 
     <svg id="drawingArea" width="1600" height="400"></svg>
@@ -43,6 +46,7 @@
             let me = this;
             let memodels = me.models;
             let xOffset = 0;
+            let yOffset = 0;
 
 
             function drawCharacter(character, x, y, idx) {
@@ -76,8 +80,11 @@
                 const character = inputText[i];
                 if (character == ' ') {
                     xOffset += .3;
-                } else {
-                    drawCharacter(character, xOffset, 0, i);
+                } else if (character == '\n') {
+                    xOffset = 0;
+                    yOffset -= .6;
+                }else {
+                    drawCharacter(character, xOffset, yOffset, i);
 
                     // Calculate the next offset based on the bounding box
                     const boundingBox = jsonData["glyph_" + character.charCodeAt(0)].boundingbox;
@@ -99,7 +106,8 @@
             makerjs.model.zero(this);
             allbb = makerjs.measure.modelExtents(lastmodel);
             //this.models = msar
-
+            let info = allbb.high[0].toFixed(0) + "x" + Math.abs(allbb.high[1]).toFixed(0) + 'mm';
+infoo.innerText = info
         }
 
         function updateDrawing() {
@@ -128,7 +136,7 @@
             // Create a download link
             const link = document.createElement('a');
             link.href = window.URL.createObjectURL(blob);
-            link.download = inputText + "_" + allbb.high[0].toFixed(0) + "x" + allbb.high[1].toFixed(0) + 'mm.dxf';
+            link.download = inputText + "_" + allbb.high[0].toFixed(0) + "x" + Math.abs(allbb.high[1]).toFixed(0) + 'mm.dxf';
 
             // Trigger the download
             document.body.appendChild(link);
