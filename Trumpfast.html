@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simplified Gcode to Trumpf</title>
+    <style>
+        canvas {
+            border: 1px solid #000;
+        }
+        
+        input,button {
+          display:block;
+          margin: 2vw;
+          height: 10vw;
+          fontSize:6vw;
+          
+          }
+          
+          #cnvcnt{
+            width: 100vw;
+            height: 60vh;
+            overflow:scroll;
+            }
+    </style>
+</head>
+<body>
+
+scroll to view full drawing
+<div id=cnvcnt>
+<canvas id="drawingCanvas" width="500" height="500"></canvas>
+</div>
+<input type="file" id="fileInput">
+ 
+ target width in mm:
+<input type="number" size=4 id="scaleTo" value ="100"> 
+scaleProgram
+<button onclick="scaleProgram()">scaleProgram</button>
+<button onclick="saveStringToFile()">saveStringToFile</button>
+<script>
+  
+ 
+var  content = '';
+var fileName = '';
+  
+  
+ class Vector {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+    }
+}
+
+class Purpose {
+    constructor(TECH_TABLE) {
+        this._TECH_TABLE = TECH_TABLE;
+    }
+
+    df(gcodeInstance) {
+        // Implement your logic for dynamic footer here
+        return '';
+        
+    }
+
+    dh(gcodeInstance) {
+        // Implement your logic for dynamic header here
+        return genLaser1Header1(gcodeInstance.NC_compat_filename);
+    }
+}
+
+
+
+function genLaser1Header1(VarProgName){
+  if(!VarProgName) throw Error('no 1st oarameter:VarProgName');
+let Header = 
+`BD
+SET_METRIC
+C
+BEGIN_EINRICHTEPLAN_INFO
+C
+ZA,MM,6
+MM,AT,1,60,1,1,,'ProgName',,'',T
+MM,AT,1,280,1,1,,'MachineViewerName',,'',T
+MM,AT,1,300,1,1,,'CheckLevel',,'',Z
+MM,AT,1,310,1,1,,'SetupSuppression',,'',Z
+MM,AT,1,320,1,1,,'SortMasterBoxSetupConfiguration',,'',Z
+MM,AT,1,330,1,1,,'LaserCutDataCalculated',,'',Z
+C
+ZA,DA,1
+DA,'${VarProgName}','Service',-1,0,-1,0
+C
+ENDE_EINRICHTEPLAN_INFO
+C
+BEGIN_PROGRAM_PROPERTIES
+C
+ZA,MM,16
+MM,AT,1,10,1,1,,'SyncDataChangePierceToCut',,'',Z
+MM,AT,1,20,1,1,,'ProgramType',,'',Z
+MM,AT,1,30,1,1,,'ProgramedClampPositionsObligatory',,'Bool',Z
+MM,AT,1,40,1,1,,'ReentryRestriction',,'',Z
+MM,AT,1,50,1,1,,'ContourLineAdjustmentActive',,'Bool',Z
+MM,AT,1,60,1,1,,'FinishedPartSupportNumber',,'',Z
+MM,AT,1,70,1,1,,'BevelCuttingVersion',,'',Z
+MM,AT,1,80,1,1,,'FluidSprayMode',,'',Z
+MM,AT,1,90,1,1,,'RetractableClampsRequired',,'Bool',Z
+MM,AT,1,100,1,1,,'AdjustLineLevel',,'',Z
+MM,AT,1,110,1,1,,'CollisionReduced',,'',Z
+MM,AT,1,130,1,1,,'LabelEncodingTypes',,'',Z
+MM,AT,1,140,1,1,,'CodeSignature',,'',T
+MM,AT,1,150,1,1,,'ContourLineAdjustmentRequiered',,'',Z
+MM,AT,1,170,1,1,,'ScrapControlRecutActive',,'',Z
+MM,AT,1,190,1,1,,'HeadAdjustmentMethod',,'',Z
+C
+ZA,DA,1
+DA,0,4,0,0,0,0,0,0,0,0,0,0,'CodeSignature_NONE',-1,1,0
+C
+ENDE_PROGRAM_PROPERTIES
+C
+BEGIN_PROGRAMM
+C
+ZA,MM,6
+MM,AT,1,10,1,1,,'ProgTitle',,'',T
+MM,AT,1,20,1,1,,'ProgType',,'',T
+MM,AT,1,30,1,1,,'Comment',,'',T
+MM,AT,1,40,1,1,,'WorkingTime',,'min',Z
+MM,AT,1,60,1,1,,'IncreasingRecordNumberFlag',,'Bool',Z
+MM,AT,1,80,1,1,,'IsSubProgMacro',,'Bool',Z
+C
+ZA,DA,1
+DA,'${VarProgName}','HP','',0,0,0
+START_TEXT`;
+
+return Header
+}
+
+
+
+
+
+function cleanFileNameLimited(fileName) {
+    // Remove file extension
+    const fileNameWithoutExtension = fileName.replace(/\.[^.]+$/, '');
+
+    // Replace non-alphanumeric characters with underscores
+    const cleanedFileName = fileNameWithoutExtension.replace(/[^\w]/g, '_');
+
+    // Limit the length to 23 characters
+    const limitedFileName = cleanedFileName.slice(0, 23);
+
+    return limitedFileName.toUpperCase();
+}
+
+
+
+
+
+
+class TrumpfGcode {
+    constructor() {
+      this.entry=3;
+        this.verbose = false;
+        this.cutType = 100;
+        this.purpose = null;
+        this._numbering = true;
+        this._N = 0;
+        this.cutting = false;
+        this.position = new Vector(0, 0);
+        this.block_no = 0;
+        this._next_speed = null;
+        this._current_speed = null;
+        this.NC_compat_filename = cleanFileNameLimited(this.ddd());
+        this.precision = 0.2;
+    }
+
+    setPurpose(interfaceClass) {
+        this.purpose = interfaceClass;
+    }
+
+    setCutType(t) {
+        this.cutType = t;
+    }
+
+    ddd() {
+        const date = new Date().toLocaleString('en-US', {
+            weekday: 'short',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        }).replace(/[,/: ]/g, '');
+        return date.toUpperCase();
+    }
+
+    calcX(x) {
+        return 430 + x;
+    }
+
+    calcY(y) {
+        return 1925 + y;
+    }
+
+    get N() {
+        if (this._numbering !== true) {
+            return '';
+        }
+        this._N += 1;
+        return `N${this._N}0`;
+    }
+
+    set N(value) {
+        this._N = value;
+    }
+
+    
+    set_NCfilename(NCfilename) {
+        if (NCfilename !== null) {
+            this.NC_compat_filename = cleanFileNameLimited(NCfilename);
+        } 
+    }
+
+    set_movement_speed(speed) {
+        this._next_speed = speed;
+        return '';
+    }
+
+    linear_move(x = null, y = null, z = null) {
+        if (x === null && y === null && z === null) {
+            console.warn("linear_move command invoked without arguments.");
+            return '';
+        }
+
+        const xo = this.calcX(x);
+        const yo = this.calcY(y);
+        let command = '';
+
+        if (this.cutting) {
+            command += this.N;
+            command += " G01";
+            command += x !== null ? ` X = ${xo.toFixed(2)}` : '';
+            command += y !== null ? ` Y = ${yo.toFixed(2)}` : '';
+            command += z !== null ? ` Z = ${z.toFixed(2)}` : ' Z = -207.00 B = 0.00 C = 0.00';
+        }
+
+        if (this.position !== null || (x !== null && y !== null)) {
+            if (x === null) {
+                x = this.position.x;
+            }
+            if (y === null) {
+                y = this.position.y;
+            }
+            this.position = new Vector(x, y);
+        }
+
+        return command;
+    }
+
+    laser_off() {
+        let command = '';
+        if (this.cutting) {
+            const x = this.position.x;
+            const y = this.position.y;
+            const xo = this.calcX(x);
+            const yo = this.calcY(y);
+            command += `${this.N}; LEAD_OUT_START
+${this.N} TC_LASER_OFF(3)
+${this.N} G01 X = ${xo.toFixed(2)} Y = ${yo.toFixed(2)} Z = -197.00 B = 0.00 C = 0.00 F = 173000
+${this.N}; LEAD_OUT_END
+${this.N};==================== BLOCK_END ======================`;
+        }
+        this.cutting = false;
+        return command;
+    }
+
+    set_laser_power(power) {
+        const x = this.position.x;
+        const y = this.position.y;
+        const xo = this.calcX(x);
+        const yo = this.calcY(y);
+
+        this.block_no += 1;
+        const boiler = `${this.N};==================== BLOCK_START ${this.block_no} ===============
+${this.N}; LEAD_IN_START
+BLOCK_${this.block_no}:
+${this.N} G01 X X = ${(xo-this.entry).toFixed(2)} Y = ${(yo+this.entry).toFixed(2)} Z = -197.00 B = 0.00 C = 0.00 F = 173000
+${this.N} G01 X = ${xo.toFixed(2)-this.entry} Y = ${yo.toFixed(2)+this.entry} Z = -207.00 B = 0.00 C = 0.00
+${this.N} TC_LASER_ON(1,"${this.purpose._TECH_TABLE}",10,${this.cutType})
+${this.N}; LEAD_IN_END`;
+
+        this.position = new Vector(x, y);
+        this.cutting = true;
+        return boiler;
+    }
+
+    set_absolute_coordinates() {
+        return '';  // "G90;"
+    }
+
+    set_relative_coordinates() {
+        return '';  // ';rel'  // "G91;"
+    }
+
+    dwell(milliseconds) {
+        return '';  // ';dwell'  // `G4 P${milliseconds}`
+    }
+
+    set_origin_at_position() {
+        this.position = new Vector(0, 0);
+        return '';  // ";sets origin at position"
+    }
+
+    set_unit(unit) {
+        if (unit === "mm") {
+            return '';  // ';set unit mm'  // "G21;"
+        }
+
+        if (unit === "in") {
+            return '';  // ';set unit in'  // "G20;"
+        }
+
+        return '';
+    }
+
+    dynamic_footer() {
+        
+       let command = 
+`${this.N}; END_OF_PROGRAM
+${this.N} TC_RESET
+${this.N} TC_LASER_OFF(2)
+${this.N} M02
+STOP_TEXT
+C
+ENDE_PROGRAMM
+C
+ED`;
+
+   
+        return command;
+    }
+
+    dynamic_header(StringVariableDeclarations='',StringCheckAndSetAllG54 = '') {
+        let bubuheader = this.purpose.dh(this);
+bubuheader += '\n';       
+
+bubuheader += `${StringVariableDeclarations}
+${this.N} TC_RESET
+${this.N} G71
+${this.N} ; OVL, ACC
+${this.N} TC_DYNAMIC_LEVEL(0)
+${this.N} TC_OST(5.0)
+${this.N} TC_ADC_ON(10)
+${this.N} TC_TRAFO_ON("BC")
+${this.N} TC_LASER_REQUEST(1)
+${this.N} SET_G54(0.00,0.00,0.00); Comment out if program is used on the machine
+${StringCheckAndSetAllG54}
+SETAXG54(B,0)
+SETAXG54(C,0)
+${this.N} F = 173000
+${this.N};GOTOF ENTRY_LASER
+${this.N} TC_TRAFO_OFF
+${this.N} G500
+${this.N} G01 Z = 750.00 F = 173000
+${this.N} G01 B = 0.00 C = 0.00
+${this.N} TC_TRAFO_ON("BC")
+${this.N} G54
+${this.N}; END_OF_HEADER
+`;
+        return bubuheader;
+    }
+}
+
+function home_axes() {
+    return ';hello';  // "G28;"
+}
+
+
+function buildGCode(programArray,interfaceClass,prognm) {
+    const gcodeGenerator = new TrumpfGcode();
+    gcodeGenerator.setPurpose(interfaceClass) 
+    const gcodeStringArray = [];
+	if(prognm){
+		gcodeGenerator.set_NCfilename(prognm)
+		}
+
+gcodeStringArray.push(gcodeGenerator.dynamic_header())
+gcodeStringArray.push(';this works')
+    for (const pathArray of programArray) {
+        gcodeStringArray.push(gcodeGenerator.set_laser_power(1)); // Turn laser on at the beginning of a path
+
+        for (const [x, y] of pathArray) {
+            const moveCommand = gcodeGenerator.linear_move(x, y);
+            gcodeStringArray.push(moveCommand);
+        }
+
+        gcodeStringArray.push(gcodeGenerator.laser_off()); // Turn laser off at the end of a path
+        
+    }
+    gcodeStringArray.push(gcodeGenerator.dynamic_footer()); // Turn laser off at the end of a path
+
+    let fileContent = gcodeStringArray.join('\n');
+    let fileName = gcodeGenerator.NC_compat_filename
+    return {fileContent,fileName}
+}
+
+
+// Example usage:
+
+ 
+  
+  class GCodeParser {
+    constructor() {
+        this.pointsArray = [];
+        this.currentPath = [];
+        this.currentDictionary = { G: 0, X: 0, Y: 0, M: 0, F: 0, O: [0, 0] };
+        this.modalState = 0; // Default modal state
+        this.offset = [0, 0];
+    }
+
+    updateDictionary(lineArray) {
+        for (const element of lineArray) {
+            const letter = element.charAt(0);
+            const value = parseFloat(element.slice(1));
+console.log('number ',value)
+            if (letter === 'O' && (value === 1 || value === 2)) {
+              this.offset = [0,0]
+              this.currentDictionary = { G: 0, X: 0, Y: 0, M: 0, F: 0, O: [0, 0] };
+              this.laser_off()
+                if (value === 1) {
+                    this.offset[0] = this.calculateXRange()+5;
+                } else if (value === 2) {
+                    this.offset[1] = this.calculateYRange()+5;
+                }
+            } else if (['G', 'X', 'Y', 'M', 'F'].includes(letter)) {
+                this.currentDictionary[letter] = value;
+            }
+        }
+    }
+
+    calculateXRange() {
+        const xValues = this.pointsArray.flat().map(point => point[0]);
+        return Math.max(...xValues) - Math.min(...xValues);
+    }
+
+    calculateYRange() {
+      
+        const yValues = this.pointsArray.flat().map(point => point[1]);
+        console.log('yValues',yValues);
+        return Math.max(...yValues) - Math.min(...yValues);
+    }
+
+    parseLine(line) {
+        const lineArray = line.trim().split(/\s+/);
+        
+        console.log('line ',line)
+        this.updateDictionary(lineArray);
+
+        if (this.currentDictionary['G'] === 0) {
+            this.laser_off()
+        } else if (this.currentDictionary['G'] === 1) {
+            this.addPointToPath();
+        }
+    }
+
+    offsetPath() {
+        
+    }
+    
+    laser_off(){
+      	if (this.currentPath.length > 0) {
+            this.pointsArray.push([...this.currentPath]); // Store the last path
+        }
+        this.currentPath = [];
+      }
+
+    addPointToPath() {
+        let x = this.currentDictionary['X'];
+        let y = this.currentDictionary['Y'];
+        x+=this.offset[0] 
+        y+=this.offset[1]
+        this.currentPath.push([x, y]);
+        this.lastX = x;
+        this.lastY = y;
+    }
+
+    parseGCode(gcodeString) {
+        const lines = gcodeString.split('\n');
+        for (const line of lines) {
+            this.parseLine(line.toUpperCase());
+        }
+
+        if (this.currentPath.length > 0) {
+            this.pointsArray.push([...this.currentPath]); // Store the last path
+        }
+
+        return this.pointsArray;
+    }
+}
+
+// Example usage:
+const gcodeStringWithParser =
+`G1 X0 Y0
+X100 
+Y23
+X50
+y12
+x0
+y0
+O1
+G01 X0 Y0
+X10 
+Y10
+X20
+y30
+x0
+y0 
+`;
+
+let parser = new GCodeParser();
+const parsedPointsWithParser = parser.parseGCode(gcodeStringWithParser);
+console.log(parsedPointsWithParser);
+programArray = parser.parseGCode(gcodeStringWithParser);
+  
+function saveStringToFile() {
+  const techTableExample = "ST020MDN2X-0"; // Replace with your actual tech table value
+const purposeInstance = new Purpose(techTableExample);
+
+
+
+const gcodeResult = buildGCode(programArray,purposeInstance,fileName);
+console.log(gcodeResult);
+content = gcodeResult.fileContent;
+fileName = gcodeResult.fileName;
+fileName += '.LST.c';
+    const blob = new Blob([content], { type: 'text/plain' });
+    const link = document.createElement('a');
+
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+}  
+  
+  
+  
+
+        const canvas = document.getElementById("drawingCanvas");
+        const ctx = canvas.getContext("2d");
+        let zoomf = 0.8;
+        let mrg = 1;
+
+        document.getElementById("fileInput").addEventListener("change", handleFile);
+
+        function handleFile(event) {
+          programArray =[];
+            const fileInput = event.target;
+            const file = fileInput.files[0];
+			
+            if (file) {
+              
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    const fileContent = e.target.result;
+                    fileName = file.name
+                    alert(fileName);
+                    try {
+                      parser = new GCodeParser();
+                        programArray = parser.parseGCode(fileContent);
+                        drawProgram();
+                    } catch (error) {
+                        console.error("Error parsing file content:", error);
+                    }
+                };
+
+                reader.readAsText(file);
+            }
+        }
+
+        function drawProgram() {
+            // Calculate bounding box
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+            programArray.forEach(path => {
+                path.forEach(point => {
+                    const [x, y] = point;
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                });
+            });
+			
+            let rngX = maxX - minX;
+            let rngY = maxY - minY;
+            
+            if(rngX > 3000 || rngY > 3000 ){
+              alert('program bigger than 3000mm')
+              throw Error('too big')
+              }
+            
+            
+         
+            
+            canvas.width = rngX * 10;
+            canvas.height = rngY * 10;
+
+            // Draw lines and label points
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            programArray.forEach(path => {
+                ctx.beginPath();
+                path.forEach(point => {
+                    const [x, y] = point;
+                    const canvasX = zoomf * rngX * mrg + (x - minX) / (maxX - minX) * canvas.width * zoomf;
+                    const canvasY = zoomf * rngY * mrg + (y - minY) / (maxY - minY) * canvas.height * zoomf;
+
+                    ctx.lineTo(canvasX, canvasY);
+                    ctx.fillText(`(${x}, ${y})`, canvasX, canvasY - 5);
+                });
+                ctx.stroke();
+            });
+        }
+        
+        var programArray = [
+  [
+    [ 0, 0 ],
+    [ 100, 0 ],
+    [ 100, 23 ],
+    [ 50, 23 ],
+    [ 50, 12 ],
+    [ 0, 12 ],
+    [ 0, 0 ]
+  ],
+  [
+    [ 105, 0 ],
+    [ 115, 0 ],
+    [ 115, 10 ],
+    [ 125, 10 ],
+    [ 125, 30 ],
+    [ 105, 30 ],
+    [ 105, 0 ],
+    [ 105, 0 ]
+  ]
+]
+
+drawProgram()
+
+        
+    
+    
+function scaleProgramToFit(programArray, targetSize) {
+    // Calculate current bounding box
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    programArray.forEach(path => {
+        path.forEach(point => {
+            const [x, y] = point;
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+        });
+    });
+
+    const currentWidth = maxX - minX;
+    const currentHeight = maxY - minY;
+
+    // Calculate scaling factors
+    const scaleX = targetSize / currentWidth;
+    const scaleY = targetSize / currentHeight;
+
+    // Scale and round all points
+    const scaledArray = programArray.map(path =>
+        path.map(point => [
+            parseFloat((point[0] * scaleX).toFixed(2)),
+            parseFloat((point[1] * scaleY).toFixed(2)),
+        ])
+    );
+alert('scaling')
+    return scaledArray;
+}
+
+
+function scaleProgram(){
+let scaletrg = parseInt(scaleTo.value)
+ programArray = scaleProgramToFit(programArray, scaletrg);
+drawProgram()    
+  }  
+    
+    
+    
+</script>
+
+</body>
+</html>
