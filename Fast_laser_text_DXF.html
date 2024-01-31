@@ -20,14 +20,16 @@
     stroke dxf for importing. Change desired width of full text line in mm.
     <br>
     <label for="textInput">Enter Text:</label>
-<textarea id="textInput" cols="20" rows="4" placeholder="Type text here" oninput="updateDrawing()">ABC
-XY.Z
-12-34</textarea>
+<textarea id="textInput" cols="20" rows="4" placeholder="Type text here" oninput="updateDrawing()">your
+etched
+text</textarea>
 <br>
     <label for="widthInput">Width Of Full Text:</label>
     <input type="number" id="widthInput" value="50" min="10" max="300" oninput="updateDrawing()">
 size:<span id = "infoo"></span>
     <button onclick="generateAndDownloadDXF()">Generate DXF</button>
+    
+    <button onclick="generateAndDownloadSVG()">Generate SVG</button>
 
     <svg id="drawingArea" width="1600" height="400"></svg>
 
@@ -36,6 +38,7 @@ size:<span id = "infoo"></span>
         let lastmodel = null;
         let currentModel;
         var allbb = null;
+        var currentSVG = null;
 
         function drawText(inputText, desired_width) {
             this.units = makerjs.unitType.Millimeter;
@@ -56,7 +59,14 @@ size:<span id = "infoo"></span>
                 if (glyphData) {
                     glyphData.curves.forEach((splineData, i) => {
                         const points = splineData.points.map(point => [point[0] + x, point[1] + y]);
-
+                       let p1 = [...points[points.length-1]]
+                        p1[0]-=0.00
+                        p1[1]-=0.001
+					 points.push(p1)
+                        //let p2 = [...points[0]]
+                        //p2[0]+=0.01
+                       // p2[1]+=0.0
+                        //points.unshift(p2)//points[0])
                         let model = new makerjs.models.ConnectTheDots(false, points);
 
                         //makerjs.model.originate(model);
@@ -120,6 +130,7 @@ infoo.innerText = info
             const svgElement = document.getElementById('drawingArea');
             const svgData = makerjs.exporter.toSVG(models);
             svgElement.innerHTML = svgData;
+            currentSVG = svgData;
         }
 
         function generateAndDownloadDXF() {
@@ -145,6 +156,24 @@ infoo.innerText = info
             // Clean up
             document.body.removeChild(link);
         }
+        
+        function generateAndDownloadSVG() {
+            const inputText = document.getElementById('textInput').value;
+            const blob = new Blob([currentSVG], { type: 'text/plain' });
+
+            // Create a download link
+            const link = document.createElement('a');
+            link.href = window.URL.createObjectURL(blob);
+            link.download = inputText + "_" + allbb.high[0].toFixed(0) + "x" + Math.abs(allbb.high[1]).toFixed(0) + 'mm.svg';
+
+            // Trigger the download
+            document.body.appendChild(link);
+            link.click();
+
+            // Clean up
+            document.body.removeChild(link);
+        }
+
 
         // Initial drawing on page load
         updateDrawing();
