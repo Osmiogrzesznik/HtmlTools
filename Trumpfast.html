@@ -36,6 +36,7 @@ scroll to view full drawing
 <input type="number" size=4 id="scaleTo" value ="100"> 
 scaleProgram
 <button onclick="scaleProgram()">scaleProgram</button>
+<button onclick="closePaths()">closePaths</button>
 <button onclick="saveStringToFile()">saveStringToFile</button>
 <script>
   
@@ -157,7 +158,7 @@ function cleanFileNameLimited(fileName) {
 
 class TrumpfGcode {
     constructor() {
-      this.entry=3;
+      this.entry=0;
         this.verbose = false;
         this.cutType = 100;
         this.purpose = null;
@@ -194,11 +195,11 @@ class TrumpfGcode {
     }
 
     calcX(x) {
-        return 430 + x;
+        return x//430 + x;
     }
 
     calcY(y) {
-        return 1925 + y;
+        return y//1925 - y;
     }
 
     get N() {
@@ -273,9 +274,9 @@ ${this.N};==================== BLOCK_END ======================`;
         return command;
     }
 
-    set_laser_power(power) {
-        const x = this.position.x;
-        const y = this.position.y;
+    set_laser_power(power,x,y) {
+        //const x = this.position.x;
+        //const y = this.position.y;
         const xo = this.calcX(x);
         const yo = this.calcY(y);
 
@@ -283,7 +284,7 @@ ${this.N};==================== BLOCK_END ======================`;
         const boiler = `${this.N};==================== BLOCK_START ${this.block_no} ===============
 ${this.N}; LEAD_IN_START
 BLOCK_${this.block_no}:
-${this.N} G01 X X = ${(xo-this.entry).toFixed(2)} Y = ${(yo+this.entry).toFixed(2)} Z = -197.00 B = 0.00 C = 0.00 F = 173000
+${this.N} G01 X = ${(xo-this.entry).toFixed(2)} Y = ${(yo+this.entry).toFixed(2)} Z = -197.00 B = 0.00 C = 0.00 F = 173000
 ${this.N} G01 X = ${xo.toFixed(2)-this.entry} Y = ${yo.toFixed(2)+this.entry} Z = -207.00 B = 0.00 C = 0.00
 ${this.N} TC_LASER_ON(1,"${this.purpose._TECH_TABLE}",10,${this.cutType})
 ${this.N}; LEAD_IN_END`;
@@ -386,7 +387,8 @@ function buildGCode(programArray,interfaceClass,prognm) {
 gcodeStringArray.push(gcodeGenerator.dynamic_header())
 gcodeStringArray.push(';this works')
     for (const pathArray of programArray) {
-        gcodeStringArray.push(gcodeGenerator.set_laser_power(1)); // Turn laser on at the beginning of a path
+      const [x, y] = pathArray[0];
+        gcodeStringArray.push(gcodeGenerator.set_laser_power(1,x,y)); // Turn laser on at the beginning of a path
 
         for (const [x, y] of pathArray) {
             const moveCommand = gcodeGenerator.linear_move(x, y);
@@ -456,7 +458,9 @@ console.log('number ',value)
         this.updateDictionary(lineArray);
 
         if (this.currentDictionary['G'] === 0) {
-            this.laser_off()
+  this.laser_off()
+//this.addPointToPath();         
+ 
         } else if (this.currentDictionary['G'] === 1) {
             this.addPointToPath();
         }
@@ -594,9 +598,18 @@ fileName += '.LST.c';
                     maxY = Math.max(maxY, y);
                 });
             });
-			
+            
             let rngX = maxX - minX;
             let rngY = maxY - minY;
+            
+            programArray.forEach(path => {
+                path.forEach(point => {
+                    
+                    //point[1] = point[1]-maxY
+                });
+            });
+			
+            
             
             if(rngX > 3000 || rngY > 3000 ){
               alert('program bigger than 3000mm')
@@ -689,6 +702,14 @@ alert('scaling')
 function scaleProgram(){
 let scaletrg = parseInt(scaleTo.value)
  programArray = scaleProgramToFit(programArray, scaletrg);
+drawProgram()    
+  }  
+    
+function closePaths(){
+
+ programArray.forEach(path => {
+        path.push(path[0]);
+    });
 drawProgram()    
   }  
     
