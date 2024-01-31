@@ -186,6 +186,31 @@
                 // }
 
                 // console.log(fillTemplate(templateString, templateVars));
+                
+   class StringSplitter {
+    constructor(inputString) {
+        this.linesArray = inputString.split('\n');
+    }
+
+    insertAfter(stringToFind, stringToInsert) {
+        const foundIndex = this.linesArray.findIndex(line => line.includes(stringToFind));
+
+        if (foundIndex !== -1) {
+            const linesToInsert = stringToInsert.split('\n');
+            this.linesArray.splice(foundIndex + 1, 0, ...linesToInsert);
+        }
+
+        return this;
+    }
+
+    toString() {
+        return this.linesArray.join('\n');
+    }
+}
+             
+                
+                
+                
                 function set_scale() {
                     ctx_scl = parseFloat(scaleInput.value)
                     drawFromPoints(blocks)
@@ -931,23 +956,34 @@
                         let totalRepeatsOrParts = hmx * hmy;
 
 
-                        let STRING_definitions1 = `DEF INT CV_ROW_Y = 1 ;change if need to restart from specific row/part
-DEF INT CV_COL_X = 1 ;change if need to restart from specific column
-DEF REAL CV_START_OFFSET_X = 0 ; change if need to offset X (old SETG54(X,Y,Z)) 
-DEF REAL CV_START_OFFSET_Y = 0 ; change if need to offset Y (old SETG54(X,Y,Z))
-DEF INT CV_COL_X_LAST = ${hmx} ; change if need less columns
-DEF INT CV_ROW_Y_LAST = ${hmy} ; do not change unless using offcut (measure how many will fit first)
-DEF REAL CV_PART_SIZEY = ${partSizeY.toFixed(2)} ;do not change unless need more distance (size of part)
-DEF REAL CV_PART_SIZEX = ${partSizeX.toFixed(2)} ;do not change unless need more distance (size of part)
-DEF REAL CV_IX;
-DEF REAL CV_IY;
+                        let STRING_definitions1 = 
+`;==== START OF REP VARIABLES =====
+DEF INT CVLX = 0;
+DEF INT CVLY = 0;
+DEF INT CVMAXX = ${hmx};
+DEF INT CVMAXY = ${hmy};
+DEF INT CVREPS = 0;
+DEF INT CVMAXREPS = ${totalRepeatsOrParts};
+; these are safety to prevent going off sheet
+DEF INT CVSHEETX = ${maxX};
+DEF INT CVSHEETY = ${maxY};
+DEF INT CVPARTX = ${Math.ceil(partSizeX)};include margin
+DEF INT CVPARTY = ${Math.ceil(partSizeY)};include margin
+;==== END OF REP VARIABLES =====
+;start at: 
+DEF INT CVLY = 0;start at- change to start later part
+DEF INT CVLX = 0;start at- change to start later part
 `
-                        let STRING_info = `
-; this looped program cuts ${totalRepeatsOrParts} repeats/parts
+
+
+
+
+                        let STRING_info = 
+`; this looped program cuts ${totalRepeatsOrParts} repeats/parts
 ; in a grid of ${hmy} rows and ${hmx} columns  
 ; total machining area is ${totalMaxY.toFixed(2)} in Y and ${totalMaxX.toFixed(2)} in X  
 ; EDITING:in order to edit path(Trutops) :
-; comment out two lines starting with GOTOB 
+; comment out line starting with GOTOB 
 ; at the end of the program.
 ; WARNING! any on-line changes to anything below these lines may result in collision
 ; loop is created in such a way that moveaway in Z should not be needed
@@ -959,84 +995,83 @@ DEF REAL CV_IY;
                         let STRING_definitionsCopy = STRING_definitions1.split("\n").join("\n;")
                         let STRING_definitions = STRING_definitions1 + STRING_info + STRING_definitionsCopy
 
-                        let STRING_loop_logic = `
-; start of loop logic 
-LP_LOGIC_IN:
-;actual coefficients are offset to count from 0
-;while displayed numbers are from 1 for intuitive operation
-CV_IX = CV_COL_X - 1
-CV_IY = CV_ROW_Y -1
-; for m
-;G01 Z = -100; uncomment for higher travel distance between parts normal is -197
-IF CV_COL_X > CV_COL_X_LAST 
-    MSG("Finished all columns :" << CV_COL_X )
-    GOTOF LP_FIN_OUT
-ENDIF
-
-IF CV_ROW_Y > CV_ROW_Y_LAST 
-    MSG("Finished column:" << CV_COL_X )
-    G01 Z = 300
-    TC_LASER_OFF(2)
-    G04 F = 5.0
-    SET_G54(CV_START_OFFSET_X + CV_PART_SIZEX * CV_IX, CV_START_OFFSET_Y + CV_PART_SIZEY * CV_IY,0.00);
-    SETAXG54(B,0)
-    SETAXG54(C,0)
-    F = 173000
-    TC_TRAFO_OFF
-    G500
-    G01 Z = 750.00 F = 173000
-    G01 B = 0.00 C = 0.00
-    TC_TRAFO_ON("BC")
-    G54
-    GOTOF LP_ROW_OUT
-ENDIF
-
-MSG("Start cut column:" << CV_COL_X << " row:" << CV_ROW_Y)
-;start of repeated section
+                        let STRING_loop_logic = 
+`REPSTART_SETG54:
+G4 F5.0
+SET_G54(CVPARTX*CVLX, CVPARTY*-CVLY, 0.00)
 `
-                        let STRING_loop_inc = `
-;end of repeating cut, before any moveaway
-LP_INC_IN:
-CV_ROW_Y = CV_ROW_Y+1;
-GOTOB LP_LOGIC_IN
-LP_ROW_OUT:
-CV_ROW_Y = 0;
-CV_COL_X = CV_COL_X+1
-GOTOB LP_LOGIC_IN;
-LP_FIN_OUT:
-;MOVEAWAY and all program end sequence 
-G01 Z = 300
-SET_G54(0.00,0.00,0.00);
-SETAXG54(B,0)
-SETAXG54(C,0)
-F = 173000
-TC_TRAFO_OFF
+                        let STRING_loop_inc = 
+`;=========START OF REP LOGIC=======
+REPLOGIC:
+Z=400
+TC_LASER_OFF(2)
+CVREPS = CVREPS+1
+
+IF CVREPS >= CVMAXREPS
+   GOTOF PROG_END
+ENDIF
+
+IF CVLY >= CVMAXY 
+   IF CVLX >= CVMAXX 
+     GOTOF PROG_END
+   ELSE
+     CVLX = CVLX+1
+     	IF CVPARTX*(CVLX+1) > CVSHEETX
+     		MSG("stopping! NEXT PART OFF SHEET!" << CVPARTX*(CVLX+1));
+			GOTOF PROG_END
+		 ENDIF
+     CVLY = 0
+     MSG("XmaxLeft:" << CVPARTX*(CVLX+1)) << " YmaxTop:" << CVPARTY*(CVLY+1));
+   ENDIF
+ELSE
+CVLY = CVLY+1
+	IF CVPARTY*(CVLY+1) > CVSHEETY
+	
+	MSG("NEXT PART OFF SHEET!" << CVPARTY*(CVLY+1));
+	M00;
+			GOTOF PROG_END
+	ENDIF
+MSG("XmaxLeft:" << CVPARTX*(CVLX+1)) << " YmaxTop:" << CVPARTY*(CVLY+1));
+GOTOB REPSTART_SETG54;
+ENDIF
+
+PROG_END:
+G01 Z=500;moveaway
 G500
-G01 Z = 750.00 F = 173000
-G01 B = 0.00 C = 0.00
-TC_TRAFO_ON("BC")
-G54
-G01 Y = 430;
+Y = 400;
+;=========END OF REP LOGIC====
 `
+
                         operateOnTransformedLSTParts(
                             (nufnm, nu_LST_headers, outputGcodeStr, global_LST_footers) => {
-                                nu_LST_headers
+                         nu_LST_headers
                                 str = [nu_LST_headers, STRING_definitions, outputGcodeStr, global_LST_footers].join("\n")
                                 //put definitions at the very start of the program
                                 nu_LST_headers = nu_LST_headers.replace(START_TEXT, [START_TEXT, STRING_definitions].join("\n"))
 
                                 window.outLST = {
-                                    nu_LST_headers, STRING_loop_logic, outputGcodeStr, STRING_loop_inc, global_LST_footers,
+                                    nu_LST_headers, STRING_loop_logic, outputGcodeStr, STRING_loop_inc, global_LST_footers
                                 }
                                 console.error("TODO TODO TODO TODO no semicolon before END_OF_PROGRAM monkey fix!!!")
-                                outLSTstr = [nu_LST_headers, STRING_loop_logic, outputGcodeStr, STRING_loop_inc, ";" + global_LST_footers].join("\n")
+                                outLSTstr = [nu_LST_headers,outputGcodeStr,";" + global_LST_footers].join("\n")
+								//STRING_loop_logic, STRING_loop_inc
 
+								const splitter = new StringSplitter(outLSTstr);
+								var jumpToLogic = 
+`
+GOTOF REPLOGIC;for testing
+`
+
+                                splitter.insertAfter('SET_G54', STRING_loop_logic);
+                                splitter.insertAfter('END_OF_HEADER', jumpToLogic);
+                                splitter.insertAfter('END_OF_PROGRAM', STRING_loop_inc);
+                                const updatedString = splitter.toString();
 
                                 // Swal.fire(`remember if you need less 
                                 // parts you can always change CV_COL_X_LAST
                                 // at the start of the program. This type of repetition 
                                 // is easier to modify during on-line programming`+ JSON.stringify(strvs))
-                                saveText(outLSTstr, nufnm + ".LST")
+                                saveText(updatedString, nufnm + ".LST")
 
                                 return;
 
