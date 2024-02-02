@@ -684,14 +684,15 @@ function scaleProgramToFit(programArray, targetSize) {
     const currentHeight = maxY - minY;
 
     // Calculate scaling factors
-    const scaleX = targetSize / currentWidth;
-    const scaleY = targetSize / currentHeight;
+    maxRange = Math.max(currentWidth, currentHeight);
+    const scale = targetSize / maxRange;
+    
 
     // Scale and round all points
     const scaledArray = programArray.map(path =>
         path.map(point => [
-            parseFloat((point[0] * scaleX).toFixed(2)),
-            parseFloat((point[1] * scaleY).toFixed(2)),
+            parseFloat((point[0] * scale).toFixed(2)),
+            parseFloat((point[1] * scale).toFixed(2)),
         ])
     );
 alert('scaling')
