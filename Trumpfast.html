@@ -3,7 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simplified Gcode to Trumpf</title>
+ 	<script>
+				window.onerror = (...x) => {
+					x[2] = x[2] - 8;
+					console.error(x);
+				}
+				jo = JSON.stringify
+				lg = console.log
+				
+				say2 = x => {text2.innerText = JSON.stringify(x)}
+			</script>
+   <title>Simplified Gcode to Trumpf</title>
     <style>
         canvas {
             border: 1px solid #000;
@@ -30,19 +40,405 @@ scroll to view full drawing
 <div id=cnvcnt>
 <canvas id="drawingCanvas" width="500" height="500"></canvas>
 </div>
+<button onclick="repeatProgSpecialStart()">repeatProgSpecial</button>
+<button onclick="repeatProgSpecialStart(true)">repeatProgSpecial2</button>
 <input type="file" id="fileInput">
  
  target width in mm:
 <input type="number" size=4 id="scaleTo" value ="100"> 
 scaleProgram
+
 <button onclick="scaleProgram()">scaleProgram</button>
+
+
+<input type="number" size=2 id="reps" value ="2"> reps
+
 <button onclick="closePaths()">closePaths</button>
 <button onclick="saveStringToFile()">saveStringToFile</button>
+<button onclick="save2UI()">saveJson</button>
+you can open the saved .LST file <a href="https://osmiogrzesznik.github.io/HtmlTools/inconsistencyCheck.html">here</a>
 <script>
+  if (!Array.prototype.last){
+    Array.prototype.last = function(){
+        return this[this.length - 1];
+    };
+};
   
+  
+  
+  function calcBBX (pa){
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    pa.flat().forEach(point => {
+            const {x, y} = point;
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x);
+            maxY = Math.max(maxY, y);
+        });
+
+    const w = maxX - minX;
+    const h = maxY - minY;
+    const cx = (maxX + minX)/2;
+    const cy = (maxY + minY)/2;
+    let id = gid++;
+   let o = {minX,minY,maxX,maxY,w,h,cx,cy,id}  
+ return o
+  }
+
+
+  </script>
+    <script>
+      
+  StartAlll = x=>{
+ parser = new GCodeParser();
+ fetch('dd2.c').then(x=>x.text()).then(gcodestring=>{
+   lg(gcodestring)
+   
+programArray = 
+parser.parseGCode(gcodestring);
+//parser.parseGCode(gcodeStringToParse);
+//repeatProgSpecialStart()
+drawProgram()
+}).catch(e=>console.error(e))
+
+
+}
+
+
+programArray=[]
+
+gid= 0;
+class CutArrays{
+    constructor(capacity){  
+    this.capacity = capacity;
+    this.i= gid++
+    this.openArr = [];
+    this.ar = [];
+}
+push(val){
+if(this.openArr.length < this.capacity) {
+        this.openArr.push(val);
+}else{
+  this.close()
+  this.openArr.push(val);
+  }
+}
+close(){
+  this.ar.push(this.openArr);
+  this.openArr = [];
+  }
+flat(){
+  return this.ar.flat()
+  }
+  
+lastlast(){
+  let arf = this.flat();
+  let arfli = arf.length -1;
+  return arf[arfli]
+  }
+
+firstfirst(){
+  let arf = this.flat();
+  let arfli = 0;
+  return arf[arfli];
+  }
+
+}
+
+let gcodeStringToParse ='';
+
+let gcodeStringToParse0 =
+`G0 x0 y0
+g1 x0 y0
+G91 X5
+Y-20
+X5
+Y3
+Y2 X2
+X8
+Y-15
+X-10
+Y5
+X-10
+Y25
+G90
+`;
+
+let gcodeStringToParse1 =
+`
+g1 y10 x109
+y10 x105
+y15 x105
+y20 x100
+x10 y20
+x5 y15
+x0 y15
+x0 y10
+y0 x0
+x50 y0
+x50 y5 
+x55 y5
+x55 y0
+x100 y0
+y5 x100
+y5 x105
+y8 x105
+`;
+
+let gcodeStringToParse2 =
+`g1 x10 y10
+x0 y10
+x0 y90
+x10 y90
+x10 y100
+x90 y100
+x90 y90
+x100 y90
+x100 y10
+x90 y10
+x90 y0
+x10 y0
+x10 y10`;
+
+let gcodeStringToParse3 =
+`g1 x10 y10
+x10 y0
+x100 y0
+x100 y20
+x0 y20
+x0 y10
+x10 y10
+`;
+
+let gcodeStringToParse11 =
+`g1 x0 y0
+x50 y0
+x50 y5 
+x55 y5
+x55 y0
+x100 y0
+y5 x100
+y5 x105
+y15 x105
+y15 x100
+y20 x100
+x10 y20
+x5 y15
+x0 y15
+x0 y0
+`;
+
+
+gcodeStringToParse = gcodeStringToParse1
+
+
+
+
+
+function repeatProgSpecial(profil, reps,removeLeadIn) {
+  //save2(profil)
+    // Calculate current bounding box
+    let bbx0 = calcBBX(profil);
+const {minX,minY,maxX,maxY,cx,cy,w,h} = bbx0;
+
+ //now collect all the top points lines
+ //each point must be top y
+ let lnsT = new CutArrays(2);
+ let lnsB = new CutArrays(2);
+ 
+ //TODO jesli sa featuresy wewnatrz to 
+ //indexowanie przestanie dzialac
+ // tu musisz miec tylko profil!!!
+ //profil!!!
+ //profil!!!
+ // tu musisz miec tylko profil!!!
+ //profil!!!
+ //profil!!!
+ let ppppi = -1;
+ let oths = []
+ let tmp = []
+ let allps = profil.flat();
+ 
+ var topbottoms = (p,ii)=>{	
+   // tutaj tylko top i botom
+    if (p.y === minY){
+     p.color = 'red';
+              
+     lnsB.ar.push(p)				
+    }
+    if (p.y === maxY){ 
+      
+  
+  p.color = 'blue';      
+     lnsT.ar.push(p)
+
+    }           
+  }
+ 
+ allps.forEach((point,ii) => {
+    ppppi++;
+    const {x, y} = point;
+    let p = point;
+    let np = allps[ii+1];
+    if(!np) np = allps[0];
+    let lp = allps[ii-1];
+    if(!lp) lp = allps[allps.length-1];
+    point.i = ppppi;
+    p.color = 'rgba(0,0,0,.3)'
+    lg({lp,p,np,ii})  
+           
+   
+ if(ii === 0 ){
+  if(y === minY || y === maxY){ 
+  //pierwszy i TOP
+   if(np.y === minY){//pierwsze dwa sa TOP,  nie dodawaj do ciecia
+   }else{//pierwszy top nast nie, dodaj do ciecia
+ tmp.push(p)  
+   }
+  }else{//pierwszy i nie jest minymaxytb - otwiera cut 
+ tmp.push(p)
+  }
+  return topbottoms(p,ii)
+ }// koniec pierwszy
+
+      // ii>0
+      if(p.y === minY){//ten jest miny
+            if(lp.y !== minY ){//ale ostatni nie byl czyli ten zamyka cut
+            tmp.push(p)
+            oths.push([...tmp]);tmp = []; 
+			}else{
+            //ii>0,p.min,lp.min
+            // to btedge
+            if(!np){//to btedge ale koniec programu
+            //nie rob nic bo jest ok?
+			// cyrkularne!! ta sciezka zaczela sie kiedys w polowie
+			oths[0][0].unshift(p)
+			return topbottoms(p,ii)
+			}else 
+			if(np && np.y !== minY){//to btedge ale koncowka
+            
+                tmp.push(p)
+              }
+            return topbottoms(p,ii)
+            }// KONIEC //ale ostatni nie byl czyli ten zamyka cut
+        }
+		else        
+        if(p.y === maxY){//ten jest miny
+            if(lp.y !== maxY ){//ale ostatni nie byl czyli ten zamyka cut
+            tmp.push(p)
+            oths.push([...tmp]);tmp = []; 
+			}else{
+            //ii>0,p.min,lp.min
+            //to btedge
+            if(!np){//to btedge ale koniec programu
+            //nie rob nic bo jest ok?
+			// cyrkularne!! ta sciezka zaczela sie kiedys w polowie
+			oths[0][0].unshift(p)
+			}else 
+            if(np && np.y !== maxY){//to btedge ale koncowka
+                tmp.push(p)
+              }
+            return topbottoms(p,ii)
+            }// KONIEC //ale ostatni nie byl czyli ten zamyka cut
+        }
+        else{////ii>0,!p.min
+        tmp.push(p) 
+        }
+        
+        
+        
+return topbottoms(p,ii)
+})
+oths.push([...tmp]);tmp = []; 
+
+lg(oths[oths.length-1])
+	
+lg(oths)
+//drawProgram(); 
+// allps.map(p=>p.color = 'black') 
+
+//check if first and last path are spposed to be connected
+sameXY = (p,p2)=>{
+return p.x === p2.x && p.y === p2.y
+}
+let othsf = oths.flat()
+let p1 = othsf.last(), p2 = othsf[0]
+lg({p1,p2})
+if(sameXY(p1,p2)){
+  lastpath = oths.last()
+  lastpath.pop();
+  fpath = oths.shift();
+  lastpath.push(...fpath)
+  }
+  
+//oths.flat().forEach(
+let allpaths = []
+allpaths.push(...oths)
+let t =lnsT.ar
+let b =lnsB.ar
+lg(t,b)
+allpaths.push(t)
+allpaths.push(b)
+
+return drawProgram(allpaths,{bbx:bbx0,ov:0});
+        
+
+        
+        
+        
+        
+        
+        
+    
+ 
+
+let bbxT = calcBBX([lnsT.ar])
+let bbxB = calcBBX([lnsB.ar])
+
+//chce zostawic dluzszy edge 
+//usunac krotszy
+//TODO jesli dluzszy jest przerywany
+//    moze byc problem 
+//    dluzszy edge musi zpstac zawsze zcalony
+//    w jedna linie
+
+let longerOne = null;
+if(bbxT.w > bbxB.w){
+    longerOne = lnsT.ar
+  }else if (bbxT.w < bbxB.w){
+    longerOne = lnsB.ar   
+  }else{
+    longerOne = lnsB.ar// obydwa takie same dlugie
+    //todo 
+    /*jesli obydwa maja identyczne x start 
+    albo x end  zastosuj alternating x offset
+    (w slajdach) zeby uniknac dlugich ciec
+    unoszacych gietki material
+    */
+   }
+
+//najpierw tnij wszystkie linie nie bedace
+//czescia top ani bottom
+// offset alternative zobacz prezentacje
+ 
+
+ drawProgram(null,{stopat:2})   
+ pao = JSON.parse(JSON.stringify(programArray))
+
+ nup = pao; 
+alert('repeating')
+    return nup;
+}
+
+
+
+</script>
+<script> 
  
 var  content = '';
 var fileName = '';
+var lbbx;
   
   
  class Vector {
@@ -70,6 +466,13 @@ class Purpose {
 }
 
 
+
+  
+  
+
+
+  
+  
 
 function genLaser1Header1(VarProgName){
   if(!VarProgName) throw Error('no 1st oarameter:VarProgName');
@@ -195,11 +598,11 @@ class TrumpfGcode {
     }
 
     calcX(x) {
-        return 430 + x;
+        return 440 + x;
     }
 
     calcY(y) {
-        return 1925 - y;
+        return 1920 - y;
     }
 
     get N() {
@@ -366,6 +769,33 @@ ${this.N} G01 B = 0.00 C = 0.00
 ${this.N} TC_TRAFO_ON("BC")
 ${this.N} G54
 ${this.N}; END_OF_HEADER
+
+;arrowdatum
+;this works
+N190;==================== BLOCK_START 1 ===============
+N200; LEAD_IN_START
+BLOCK_1:
+N210 G01 X = 430.00 Y = 1925.00 Z = -197.00 B = 0.00 C = 0.00 F = 173000
+N220 G01 X = 430 Y = 1925.000 Z = -207.00 B = 0.00 C = 0.00
+N230 TC_LASER_ON(1,"ST020MDN2X-0",10,100)
+N240; LEAD_IN_END
+N250 G01 X = 430.00 Y = 1925.00 Z = -207.00 B = 0.00 C = 0.00
+N260 G01 X = 530.00 Y = 1825.00 Z = -207.00 B = 0.00 C = 0.00
+N270 G01 X = 550.00 Y = 1825.00 Z = -207.00 B = 0.00 C = 0.00
+N280 G01 X = 550.00 Y = 1805.00 Z = -207.00 B = 0.00 C = 0.00
+N290 G01 X = 555.00 Y = 1805.00 Z = -207.00 B = 0.00 C = 0.00
+N300 G01 X = 555.00 Y = 1800.00 Z = -207.00 B = 0.00 C = 0.00
+N310 G01 X = 556.00 Y = 1800.00 Z = -207.00 B = 0.00 C = 0.00
+N320 G01 X = 556.00 Y = 1799.00 Z = -207.00 B = 0.00 C = 0.00
+N330 G01 X = 556.00 Y = 1799.00 Z = -207.00 B = 0.00 C = 0.00
+N340; LEAD_OUT_START
+N350 TC_LASER_OFF(3)
+N360 G01 X = 556.00 Y = 1799.00 Z = -197.00 B = 0.00 C = 0.00 F = 173000
+N370; LEAD_OUT_END
+N380;==================== BLOCK_END ======================
+
+
+
 `;
         return bubuheader;
     }
@@ -387,10 +817,10 @@ function buildGCode(programArray,interfaceClass,prognm) {
 gcodeStringArray.push(gcodeGenerator.dynamic_header())
 gcodeStringArray.push(';this works')
     for (const pathArray of programArray) {
-      const [x, y] = pathArray[0];
+      const {x, y} = pathArray[0];
         gcodeStringArray.push(gcodeGenerator.set_laser_power(1,x,y)); // Turn laser on at the beginning of a path
 
-        for (const [x, y] of pathArray) {
+        for (const {x, y} of pathArray) {
             const moveCommand = gcodeGenerator.linear_move(x, y);
             gcodeStringArray.push(moveCommand);
         }
@@ -412,8 +842,11 @@ gcodeStringArray.push(';this works')
   
   class GCodeParser {
     constructor() {
+      this.first = true;
+      this.wheretogonow ={};
         this.pointsArray = [];
         this.currentPath = [];
+        this.activeGs = {}
         this.currentDictionary = { G: 0, X: 0, Y: 0, M: 0, F: 0, O: [0, 0] };
         this.modalState = 0; // Default modal state
         this.offset = [0, 0];
@@ -421,40 +854,66 @@ gcodeStringArray.push(';this works')
 
     updateDictionary(lineArray) {
         for (const element of lineArray) {
-            const letter = element.charAt(0);
+            const letter = element.charAt(0).toUpperCase();
             const value = parseFloat(element.slice(1));
-console.log('number ',value)
+
             if (letter === 'O' && (value === 1 || value === 2)) {
               this.offset = [0,0]
-              this.currentDictionary = { G: 0, X: 0, Y: 0, M: 0, F: 0, O: [0, 0] };
+              this.currentDictionary = { G: 0, X: 0, Y: 0, M: 0, F: 0, O: [0, 0], N:0 };
               this.laser_off()
                 if (value === 1) {
                     this.offset[0] = this.calculateXRange()+5;
                 } else if (value === 2) {
                     this.offset[1] = this.calculateYRange()+5;
                 }
-            } else if (['G', 'X', 'Y', 'M', 'F'].includes(letter)) {
+            } else if ([ 'N','X', 'Y', 'M', 'F'].includes(letter)) {
                 this.currentDictionary[letter] = value;
-            }
-        }
+                this.wheretogonow[letter]=value
+            } else if(letter == 'G'){
+              let v = value
+              switch(v){
+                case 0:
+                case 1:
+                this.currentDictionary.G =  value;
+                break;
+                case 91:
+                	this.incremental = true;
+                break;
+                case 90:
+                	this.incremental = false;
+                break;
+                default:
+                	this.activeGs[v] = true
+                	
+              }
+              
+        }else{
+          
+          }
     }
-
+}
     calculateXRange() {
-        const xValues = this.pointsArray.flat().map(point => point[0]);
+        const xValues = this.pointsArray.flat().map(point => point.x);
         return Math.max(...xValues) - Math.min(...xValues);
     }
 
     calculateYRange() {
       
-        const yValues = this.pointsArray.flat().map(point => point[1]);
-        console.log('yValues',yValues);
+        const yValues = this.pointsArray.flat().map(point => point.y);
+        
         return Math.max(...yValues) - Math.min(...yValues);
     }
 
     parseLine(line) {
+      line = line.split(';')[0];
+      line = line.replace(/\s+=\s+/g,'');
+      if(!line.length) return;
         const lineArray = line.trim().split(/\s+/);
         
-        console.log('line ',line)
+  
+          
+        this.wheretogonow ={}
+        
         this.updateDictionary(lineArray);
 
         if (this.currentDictionary['G'] === 0) {
@@ -478,16 +937,52 @@ console.log('number ',value)
       }
 
     addPointToPath() {
-        let x = this.currentDictionary['X'];
-        let y = this.currentDictionary['Y'];
+      let x=0,y=0,
+      xt = this.wheretogonow['X'],
+      yt = this.wheretogonow['Y'],
+      xtis = (xt || xt === 0),
+	  ytis = (yt || yt === 0), 
+      xl = this.curPosX,
+      yl = this.curPosY;
+     if(!this.first){
+       
+      if(this.incremental){
+         x = xl;
+     	y = yl;
+          xtis && (x+=xt)
+          ytis && (y+=yt)
+        }else{
+         x = xl;
+     	y = yl;
+            xtis && (x=xt)
+        	ytis && (y=yt)
+        
+            }
+        
         x+=this.offset[0] 
         y+=this.offset[1]
-        this.currentPath.push([x, y]);
-        this.lastX = x;
-        this.lastY = y;
+      }else{
+//first point ever
+
+if(!ytis || !xtis) {
+  alert(`first gcode point has to have
+both x and y to avoid 0,0 start`)
+  throw Error(`first gcode point has to have
+both x and y to avoid 0,0 start`)  
+}
+this.first = false;
+x = xt
+y = yt
+}  
+        this.currentPath.push({x, y, i:this.iii});
+        this.curPosX = x;
+        this.curPosY = y;
+        this.iii++;
     }
 
     parseGCode(gcodeString) {
+      this.first = 1;
+      this.iii = 0;
         const lines = gcodeString.split('\n');
         for (const line of lines) {
             this.parseLine(line.toUpperCase());
@@ -501,60 +996,22 @@ console.log('number ',value)
     }
 }
 
-// Example usage:
-const gcodeStringWithParser =
-`G1 X0 Y0
-X100 
-Y23
-X50
-y12
-x0
-y0
-O1
-G01 X0 Y0
-X10 
-Y10
-X20
-y30
-x0
-y0 
-`;
+
+
+var programArray = [];
+
+
 
 let parser = new GCodeParser();
-const parsedPointsWithParser = parser.parseGCode(gcodeStringWithParser);
-console.log(parsedPointsWithParser);
-programArray = parser.parseGCode(gcodeStringWithParser);
+
+programArray = parser.parseGCode(gcodeStringToParse);
   
-function saveStringToFile() {
-  const techTableExample = "ST020MDN2X-0"; // Replace with your actual tech table value
-const purposeInstance = new Purpose(techTableExample);
 
-
-
-const gcodeResult = buildGCode(programArray,purposeInstance,fileName);
-console.log(gcodeResult);
-content = gcodeResult.fileContent;
-fileName = gcodeResult.fileName;
-fileName += '.LST.c';
-    const blob = new Blob([content], { type: 'text/plain' });
-    const link = document.createElement('a');
-
-    link.href = URL.createObjectURL(blob);
-    link.download = fileName;
-
-    document.body.appendChild(link);
-    link.click();
-
-    document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
-}  
-  
-  
   
 
         const canvas = document.getElementById("drawingCanvas");
         const ctx = canvas.getContext("2d");
-        let zoomf = 0.8;
+        let zoomf = 0.7;
         let mrg = 1;
 
         document.getElementById("fileInput").addEventListener("change", handleFile);
@@ -575,6 +1032,7 @@ fileName += '.LST.c';
                     try {
                       parser = new GCodeParser();
                         programArray = parser.parseGCode(fileContent);
+                        
                         drawProgram();
                     } catch (error) {
                         console.error("Error parsing file content:", error);
@@ -585,101 +1043,89 @@ fileName += '.LST.c';
             }
         }
 
-        function drawProgram() {
+        function drawProgram(progAr,opts) {
+          opts = opts? opts:{};
+          let programArrayl = progAr? progAr:programArray
             // Calculate bounding box
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-            programArray.forEach(path => {
-                path.forEach(point => {
-                    const [x, y] = point;
-                    minX = Math.min(minX, x);
-                    minY = Math.min(minY, y);
-                    maxX = Math.max(maxX, x);
-                    maxY = Math.max(maxY, y);
-                });
-            });
             
-            let rngX = maxX - minX;
-            let rngY = maxY - minY;
-            
-            programArray.forEach(path => {
-                path.forEach(point => {
-                    
-                    //point[1] = point[1]-maxY
-                });
-            });
-			
+     let bbx0 = opts.bbx? opts.bbx: calcBBX(programArrayl);
+const {minX,minY,maxX,maxY,cx,cy,w,h} = bbx0;
+     
             
             
-            if(rngX > 3000 || rngY > 3000 ){
-              alert('program bigger than 3000mm')
+            let rngX = w;
+            let rngY = h;
+            
+            
+            
+            if(rngX > 3500 || rngY > 3500 ){
+              alert('program bigger than 3500mm')
               throw Error('too big')
               }
             
             
          
-            
-            canvas.width = rngX * 10;
-            canvas.height = rngY * 10;
-
+            mrg = Math.max(rngX,rngY)
+         
+   if(!opts.ov){        
+ canvas.width = rngX * 5;
+ canvas.height = rngY * 5;
+			
             // Draw lines and label points
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);}
 
-            programArray.forEach(path => {
-                ctx.beginPath();
-                path.forEach(point => {
-                    const [x, y] = point;
-                    const canvasX = zoomf * rngX * mrg + (x - minX) / (maxX - minX) * canvas.width * zoomf;
-                    const canvasY = zoomf * rngY * mrg + (y - minY) / (maxY - minY) * canvas.height * zoomf;
 
+            programArrayl.forEach(path => {
+              
+               let c;
+               ctx.beginPath()
+                path.forEach((point,ii) => {
+                	let isFirst = ii === 0;
+                  let isLast = !path[ii+1]
+                  if(c) ctx.moveTo(c.x,c.y)
+                  //ctx.beginPath();
+                  const p = point
+                    const {x, y} = point;
+                    
+                    let canvasX = zoomf + (x - minX) / (w) * canvas.width * zoomf;
+                    let canvasY = zoomf + (y - minY) / (h) * canvas.height * zoomf;
+                    canvasX+=15
+                    canvasY+=15
+			if(c && c.color && point.color){
+                      
+                      ctx.strokeStyle = c.color;
+                      ctx.fillStyle = c.color;
+                      }
+                      else{
+                      
+                      ctx.strokeStyle = 'black';
+                      ctx.fillStyle = 'black';
+                      }
                     ctx.lineTo(canvasX, canvasY);
-                    ctx.fillText(`(${x}, ${y})`, canvasX, canvasY - 5);
+                    ctx.stroke();
+                    c = {x:canvasX,y:canvasY,color:point.color}
+                    //ctx.fillText(`(${x}, ${y})`, canvasX, canvasY - 5);
+                    ctx.fillStyle = p.color;
+                    
+                    ctx.fillText([p.i,p.x,p.y], canvasX, canvasY - 5);
+                    ctx.fillRect( canvasX-2, canvasY-2,4,4);
+                    
+              // if (!isLast) {ctx.stroke();}
+		      // else{ctx.beginPaoth();}
+                    
                 });
-                ctx.stroke();
+               ctx.stroke();
             });
         }
         
-        var programArray = [
-  [
-    [ 0, 0 ],
-    [ 100, 0 ],
-    [ 100, 23 ],
-    [ 50, 23 ],
-    [ 50, 12 ],
-    [ 0, 12 ],
-    [ 0, 0 ]
-  ],
-  [
-    [ 105, 0 ],
-    [ 115, 0 ],
-    [ 115, 10 ],
-    [ 125, 10 ],
-    [ 125, 30 ],
-    [ 105, 30 ],
-    [ 105, 0 ],
-    [ 105, 0 ]
-  ]
-]
-
-drawProgram()
 
         
     
     
 function scaleProgramToFit(programArray, targetSize) {
     // Calculate current bounding box
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-    programArray.forEach(path => {
-        path.forEach(point => {
-            const [x, y] = point;
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            maxX = Math.max(maxX, x);
-            maxY = Math.max(maxY, y);
-        });
-    });
-
+    let bbx = calcBBX(programArray);
+const {minX,minY,maxX,maxY,w,h} = bbx;
     const currentWidth = maxX - minX;
     const currentHeight = maxY - minY;
 
@@ -691,11 +1137,14 @@ function scaleProgramToFit(programArray, targetSize) {
     // Scale and round all points
     const scaledArray = programArray.map(path =>
         path.map(point => [
-            parseFloat((point[0] * scale).toFixed(2)),
-            parseFloat((point[1] * scale).toFixed(2)),
+            parseFloat((point.x * scale).toFixed(2)),
+            parseFloat((point.y * scale).toFixed(2)),
         ])
     );
 alert('scaling')
+
+lbbx = calcBBX(scaledArray);
+
     return scaledArray;
 }
 
@@ -707,7 +1156,6 @@ drawProgram()
   }  
     
 function closePaths(){
-
  programArray.forEach(path => {
         path.push(path[0]);
     });
@@ -715,7 +1163,65 @@ drawProgram()
   }  
     
     
+ StartAlll()   
+ 
+ 
+ 
+ 
+  
+  function saveStringToFile() {
+  const techTableExample = "ST020MDN2X-0"; // Replace with your actual tech table value
+const purposeInstance = new Purpose(techTableExample);
+
+
+
+const gcodeResult = buildGCode(programArray,purposeInstance,fileName);
+
+content = gcodeResult.fileContent;
+fileName = gcodeResult.fileName;
+fileName += '.LST.c';
+    const blob = new Blob([content], { type: 'text/plain' });
+    const link = document.createElement('a');
+
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+}  
+  
+  
+  function save2(content) {
+  content = JSON.stringify(content,null,2)
+fileName = 'example';
+fileName += '.json';
+    const blob = new Blob([content], { type: 'text/plain' });
+    const link = document.createElement('a');
+
+    link.href = URL.createObjectURL(blob);
+    link.download = fileName;
+
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+}  
+  
+ function save2UI(){
     
+    save2(programArray)
+    }
+  
+  function repeatProgSpecialStart(){
+    
+  rs = parseInt(reps.value)
+  programArray = repeatProgSpecial(programArray, rs);
+    
+  }
 </script>
 
 </body>
