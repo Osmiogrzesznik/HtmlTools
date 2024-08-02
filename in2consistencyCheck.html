@@ -4,13 +4,19 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>PoorTops Web</title>
     <script src="sweetalert2.all.min.js"></script>
     <script src="gcodetojs.js"></script>
 
     <link rel="stylesheet" href="sweetalert2.min.css">
 </head>
 <style>
+	#appcontainekr{
+		width:100vw;
+		height:100vh;
+		overflow:scroll;
+		}
+		
     #tin {
         display: none;
     }
@@ -24,11 +30,15 @@
     #controls {
         user-select: none;
         position: fixed;
-        top: 20vh;
-        left: 20vw;
+        top: 10vh;
+        left: 10vw;
+        mmax-width:150vw;
+        mmax-height:150vh;
         background-color: rgba(190, 230, 255, .9);
         transform: scale(1);
         z-index: 999;
+        
+       
     }
 
     #progfnm {
@@ -72,7 +82,7 @@
 </style>
 
 <body>
-
+<div id=appcontainer>
     <div id="controls" style="zoom:100%;" class="controls slidersPanel box">
         <div class="draggable box" id="draggableCorner">↹dragme</div>
         <h4> - - - -Program:<span id=progfnm>no program loaded</span></h4>
@@ -80,35 +90,53 @@
             <legend>Load new File/ Export image etc.</legend>
             <input title="select any file that supports Trumpf style blocks and syntax." type="file" id=fileInput
                 onchange="loadFileAsText()">
+                	<br>
+                	
+                  <button title="saves all points to file" id="downloadReportsBtn" onclick="saveJson()">SaveJsonPart</button>
+                       <button title="saves all points to file" id="" onclick="openInTrumpfast()">openInTrumpfast</button>
+                       <br>
+                  
+                  <button title="saves all points to file" id="" onclick="saveJson('notpart')">SaveJson</button>
             <button title="saves png to file" id="downloadAsImageBtn" onclick="DownloadCanvasAsImage()">Save
                 Image</button>
-            ? <button title="toggles points visibility
-            points correspond to gcode lines/steps" id="downloadAsImageBtn" onclick="showpointstog()">Show/hide points
-            </button>
+            
             <button title="saves all analysis to txt file" id="downloadReportsBtn" onclick="DownloadReports()">Save
                 Reports</button>
-                
-                
-
-                    <button title="saves all points to file" id="downloadReportsBtn" onclick="savesimple()">Save simple</button>
-            <input id="scaleInput" value="8" onchange="set_scale()">scale
-            <input id="lineWInput" value="8" onchange="set_lw()">line width
+<input type="checkbox" id="checkboxForLaser2">Laser 2<BR> <button title="1.renumbers blocks (so numbering follows their order of execution)
+                2. renumbers lines 
+                3. modifies LST headers to xremain consistent with the Trumpf spec" onclick=" DownloadGcode()">Save
+                Gcode</button>
+</fieldset>
+        <fieldset>
+            <legend>View</legend>
+<button title="toggles points visibility
+            points correspond to gcode lines/steps" id="downloadAsImageBtn" onclick="showpointstog()">Show/hide points
+            </button>
+            
+            <input id="scaleInput" value="48" onchange="set_scale()" style="width:2em">scale
+            <input id="lineWInput" value="8" onchange="set_lw()" style="width:2em">line width
 
 
         </fieldset>
         <fieldset>
             <legend>Edit</legend>
-            <BR> <button onclick="MakeRowUI()">make Row in Y</button>
+              
+        <fieldset>
+            <legend>Zero(apply g54)</legend>
+            <input type="number" size=4 id="glb_zeroX" value ="440" style="width:3em"> 
+<input type="number" size=4 id="glb_zeroY" value ="1910" style="width:3em"> 
+             <button title="zero " onclick="zeroall()">zero</button>
+             </fieldset>
+                 <BR>   
+<button onclick="MakeRowUI()">make Row in Y</button>
+                       <BR> <button onclick="MakeRowUIX()">make Row in X</button>
             <BR> <button onclick="MakeLoopUI()">make a LP(grid nesting)</button>
             WIP feature : ability to reopen and simulate looped file
             <BR> <button onclick="reverseAllBlocks(1)">reverse blocks</button>
             <BR> <button onclick="moveSelectionInTimeUI(-1)">move Selection -1 Block
             </button>
             <button onclick="moveSelectionInTimeUI(1)">move Selection +1 Block</button>
-            <BR> <button title="1.renumbers blocks (so numbering follows their order of execution)
-                2. renumbers lines 
-                3. modifies LST headers to remain consistent with the Trumpf spec" onclick=" DownloadGcode()">Save
-                Gcode</button>
+            
             <BR> <button onclick=" deleteSelectedBlocksRange()">deleteSelectedBlocksRange</button>
             <button onclick=" deleteNonSelected()">deleteNonSelected</button>
             <fieldset>
@@ -147,6 +175,7 @@
             </fieldset>
             <fieldset>
                 <legend>Block Selection start &#x02912</legend>
+                
 
                 <button id="prevBlockStartTrimFBtn" onclick="prevBlockStartTrimBtnClick()">- &#x02912</button>
                 <input id="StartTrimManual" value="1" onchange="set_StartTrim()">
@@ -165,8 +194,11 @@
             <fieldset>
                 <button title="try to find and select blocks
              that have the largest bounding rectangle area" onclick="findProfiles()">find profiles</button>
-                 <button title="try to find and select blocks
-             that have the largest bounding rectangle area" onclick="findProfiles1()">find profile1</button>
+                <button title="try to find and select blocks
+             that have the largest bounding rectangle area" onclick="findProfiles1UI()">find profile1</button>
+                <button title="try to find and select blocks
+             that have the largest bounding rectangle area" onclick="findPart1UI()">find part1</button>
+         
                 <button onclick="setMetablockFromSelection()">Set Metablock and check</button>
                 <button onclick="AutoMetablock1()">AUTO Algorithm 1</button>
                 <button onclick="AutoMetablock2()">AUTO Algorithm 2</button>
@@ -181,12 +213,232 @@
             <pre id="tin" style="display:none">
         </div>
 </pre>
+
             <script>
-function savesimple() {
-  let nufnm = 'gowno nie wiem'
- str = outputGcode2(blocks)       
-saveText(str, nufnm + ".LST.c")                                    }
+              glob_isPartProgram = 1;
                 
+function openInTrumpfast(notpart){
+  let nufnm = 'g'
+                    let arrs = outputBlenderDataArrays(blocks,notpart)
+           
+                    //Todo this only becomes 1 if find part was pressed , 
+arrs.isPartProgram = glob_isPartProgram;
+arrs. global_LST_headers = global_LST_headers
+arrs. global_LST_footers = global_LST_footers
+
+partjson = JSON.stringify(arrs, null, 2);
+sessionStorage.setItem("part", partjson);
+
+  open('Trumpfast2.html')            
+                    
+  }
+
+
+function saveJson(notpart) {
+                  //zeroall()
+            
+                    let nufnm = 'g'
+                    let arrs = outputBlenderDataArrays(blocks,notpart)
+     say(arrs)
+                    //Todo this only becomes 1 if find part was pressed , 
+arrs.isPartProgram = glob_isPartProgram;
+partjson = JSON.stringify(arrs, null, 2);
+sessionStorage.setItem("part", partjson);
+                    saveText(partjson, nufnm + ".json")
+                    
+                }
+
+function g54L1(){
+	glb_zeroX.value = 440
+	glb_zeroY.value = 1910-5
+	}
+	
+function g54L2(){
+	glb_zeroX.value = 440-62
+	glb_zeroY.value = 1910-500
+	}
+
+function zeroall(zero0) {
+	if(!zero0){
+		return applyOffsetall({x:0,y:0})
+		}
+	
+	let x = parseInt(glb_zeroX.value),
+    y = parseInt(glb_zeroY.value);
+    
+	}
+                function applyOffsetall(offs2) {
+                	
+
+                
+                	
+                    let bs = blocks;
+                    let bbx = calcBoundBox(bs.flat())
+                    let offs = {}
+                    offs.x = -bbx.minX+offs2.x;
+                    offs.y = -bbx.minY+offs2.y;
+                    say({ offs })
+
+                    blocks = blocks.map(b => {
+                    let bbb = translateBlock(b, offs)
+                    say('zeroed block')
+                    return bbb
+                    })
+				say('zeroed all')
+				drawFromPoints(blocks)
+                }
+
+
+                window.onload = _ => {
+
+
+                    say(3);
+                    fnm =
+                        // "STENCILSL2.LST"
+                        // "STENCILSROWSNU_L2.LST"
+                        //  'SLATEOB_JSON.LST.c'
+                        'TestCommonCutalgo2.LST.c'
+
+                    //       'AA.CX.LST2.c'
+                    //    "DONE/EXMPLPART.LST"
+                    // "QRBCSCWD1.LST"
+                    // "TOLERTEST.LST"
+
+
+                    fetch(fnm)
+                        .then(r => r.text())
+                        .then(t => { say(4); textFromFileLoaded = t; startDo() })
+                }
+                blocks = [];
+
+
+                function startDo() {
+                    glb_show_points = true;
+                    scaleInput.value = ctx_scl = 1//ctx_scl
+                    lineWInput.value = currentLineWidth = 1
+                    profiles = null
+                    blocks = null
+                    sections = []
+
+                    blockselection = null;
+                    say("started separating gcode");
+                    text = textFromFileLoaded;
+                    let indStart = text.indexOf(END_OF_HEADER)
+                    // let indStart = text.indexOf(START_TEXT)
+                    if (indStart < 0) {
+                        return say(`LST FILE missing \"${END_OF_HEADER}\" string`)
+                    }
+                    indStart = indStart + END_OF_HEADER.length
+                    // indStart = indStart + START_TEXT.length
+                    let indEnd = text.indexOf(END_OF_PROGRAM)
+                    if (indEnd < 0) {
+                        say(`LST FILE missing \"${END_OF_PROGRAM}\" string. Maybe Generated on old software`)
+                        indEnd = text.length;
+                    } else {
+                        indEnd = indEnd
+                    }
+                    global_LST_headers = text.substring(0, indStart)
+                    // START_TEXT_INDEX = global_LST_headers.indexOf()
+                    // global_LST_headers_DEFS = 
+                   // global_LST_headers = text.substring(0, indStart)
+
+                    let d1i = global_LST_headers.indexOf("DEF INT")
+                    let d2i = global_LST_headers.indexOf("DEF REAL")
+                    let d3i = global_LST_headers.indexOf("DEF STRING")
+
+                    let anyDefs = [d1i, d2i, d3i].some(x => x > -1)
+                    if (anyDefs) {
+                        swal.fire("file contains dynamic variables<BR> Attempting Now to parse the logic to show simulation correctly")
+
+                    }
+                    global_LST_footers = text.substring(indEnd, text.length)
+
+                    text = text.substring(indStart, indEnd)
+                    say("finished separating gcode");
+                    progfnm.innerText = fnm
+                    global_points = []
+                    sections = interpretGCode(text, global_points)
+                    blocks = groupSectionsInBlocks(sections)
+                    // blocks = RenumberProgram(blocks)
+                    StartTrim = 0
+                    EndTrim = blocks.length - 1;
+                    EndTrimManual.value = EndTrim + 1;
+                    StartTrimManual.value = 0 + 1;
+                    StartBlockspan.innerText = blocks[0]._B
+                    EndBlockspan.innerText = blocks[blocks.length - 1]._B
+                    selectBlocks(0, EndTrim)
+                    blocks.flat().forEach(s => s.select = false)
+                    trimLengthSpan.innerText = blocks.length + " (not highlighting)"
+                    // MakeLoopUI()
+                    //test:
+
+                    // outputGcodeStr = outputGcode(blocks)
+
+                    // AutoMetablock2()
+                    //                     setMacroFromString(`N30;==================== BLOCK_START 1 ===============
+                    // N40; LEAD_IN_START
+                    // ;ENTRY_LASER:
+                    // BLOCK_1:
+                    // N50 G01 X = 0 Y = 0 Z = -197.00 B = 0.00 C = 0.00 F = 173000
+                    // N60; LEAD_IN_END
+                    // N70 R1 = 0 R2 = 0 R3 = -207.00 R4 = 0.00 R5 = 0.00 R11 = 0.00 R26 = 12.00
+                    // N80 TC_CIRC2(5,2.5,0.50,9,10,100,"SS1MM")
+                    // N90;======\============== BLOCK_END ======================`)
+                    // shiftSelection(-1)
+                    // replaceBlocksWithAMacroUI()
+                    // drawFromPoints(blocks, true)
+
+                    // console.log(profiles)
+                    // blocks.flat().map(s => say(s))
+                    // sections.filter(s => !(s.typ in NOT_OFFSETABLE_CMDS)).map(s => say(s.gc))
+                    // blocks[profiles.i] = profiles.block
+                    
+                    drawFromBlocksSIM(blocks, false)
+
+
+
+
+
+
+                    return;
+
+
+
+
+
+
+
+                    blocksOriginal = JSON.parse(JSON.stringify(blocks))
+                    // checkifRepeatsCorrectly(metablock1, blocks)
+
+
+
+
+
+                    str = getNumericCode_str_repr(sections)
+                    if (window.fileToLoad) {
+                        console.log(window.fileToLoad.name)
+                    }
+
+                    // console.log(str)
+
+                    return;
+
+                }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -206,31 +458,31 @@ saveText(str, nufnm + ".LST.c")                                    }
                 // }
 
                 // console.log(fillTemplate(templateString, templateVars));
-                
-   class StringSplitter {
-    constructor(inputString) {
-        this.linesArray = inputString.split('\n');
-    }
 
-    insertAfter(stringToFind, stringToInsert) {
-        const foundIndex = this.linesArray.findIndex(line => line.includes(stringToFind));
+                class StringSplitter {
+                    constructor(inputString) {
+                        this.linesArray = inputString.split('\n');
+                    }
 
-        if (foundIndex !== -1) {
-            const linesToInsert = stringToInsert.split('\n');
-            this.linesArray.splice(foundIndex + 1, 0, ...linesToInsert);
-        }
+                    insertAfter(stringToFind, stringToInsert) {
+                        const foundIndex = this.linesArray.findIndex(line => line.includes(stringToFind));
 
-        return this;
-    }
+                        if (foundIndex !== -1) {
+                            const linesToInsert = stringToInsert.split('\n');
+                            this.linesArray.splice(foundIndex + 1, 0, ...linesToInsert);
+                        }
 
-    toString() {
-        return this.linesArray.join('\n');
-    }
-}
-             
-                
-                
-                
+                        return this;
+                    }
+
+                    toString() {
+                        return this.linesArray.join('\n');
+                    }
+                }
+
+
+
+
                 function set_scale() {
                     ctx_scl = parseFloat(scaleInput.value)
                     drawFromPoints(blocks)
@@ -294,10 +546,7 @@ saveText(str, nufnm + ".LST.c")                                    }
 
             </script>
 
-
-            <script src="trumpftoStandardgcode.js"></script>
-
-
+     
             </pre>
             <script>
                 macroSections = []
@@ -312,7 +561,7 @@ saveText(str, nufnm + ".LST.c")                                    }
                 global_simulation_repeater = null;
                 tolerance = 1;
                 sheetZeroLaser1 = { x: 440, y: 1920 }
-                sheetZeroLaser2 = { x: 440, y: 1460 }
+                sheetZeroLaser2 = { x: 366, y: 1430 }
 
                 toleranceINP.value = tolerance;
                 lastSelected = null;
@@ -328,6 +577,9 @@ saveText(str, nufnm + ".LST.c")                                    }
                 function operateOnTransformedLSTParts(assembleFunc) {
 
                     let fnNC = fnm.replace('.LST', '').toUpperCase();
+                    if (fnNC.startsWith("P")){
+                    fnNC = fnNC.substring(1)
+                    }
                     let nufnm = fnNC + "X"
                     let msg = "save as (LST headers contain the output filename so they will be changed to suit):"
                     let usrnunm = prompt(msg, nufnm + ".LST")
@@ -342,14 +594,30 @@ saveText(str, nufnm + ".LST.c")                                    }
 
                 }
 
-
+function makeObjectComments(obj){
+   ff=JSON.stringify(obj,null,'; ')
+    ff= ff.replace(/\{/g,'')
+    ff= ff.replace(/\}/g,'')
+    ff= ff.replace(/"/g,'').trim()
+    return ff;
+    }
 
                 function DownloadGcode() {
-                    operateOnTransformedLSTParts(
+let generatedCommentsString =  makeObjectComments(generatedComments)  
+                  
+                  
+  
+
+                 operateOnTransformedLSTParts(
 
                         (nufnm, nu_LST_headers, outputGcodeStr, global_LST_footers) => {
                             console.error("TODO TODO TODO TODO no semicolon before END_OF_PROGRAM monkey fix!!!")
+  
+nu_LST_headers = nu_LST_headers.replace(START_TEXT, [START_TEXT, generatedCommentsString].join("\n"))                            
+                            
                             str = [nu_LST_headers, outputGcodeStr, ";" + global_LST_footers].join("\n")
+                            
+                          
                             saveText(str, nufnm + ".LST")
                         })
 
@@ -377,136 +645,7 @@ saveText(str, nufnm + ".LST.c")                                    }
 
 
 
-                window.onload = _ => {
 
-                    say(3);
-                    fnm =
-                        // "STENCILSL2.LST"
-                        // "STENCILSROWSNU_L2.LST"
-                        "DONE/EXMPLPART.LST"
-                    // "QRBCSCWD1.LST"
-                    // "TOLERTEST.LST"
-
-
-                    fetch(fnm)
-                        .then(r => r.text())
-                        .then(t => { say(4); textFromFileLoaded = t; startDo() })
-                }
-                blocks = [];
-                function startDo() {
-                    scaleInput.value = ctx_scl
-                    lineWInput.value = currentLineWidth
-                    profiles = null
-                    blocks = null
-                    sections = []
-
-                    blockselection = null;
-                    say("started separating gcode");
-                    text = textFromFileLoaded;
-                    let indStart = text.indexOf(END_OF_HEADER)
-                    // let indStart = text.indexOf(START_TEXT)
-                    if (indStart < 0) {
-                        return say(`LST FILE missing \"${END_OF_HEADER}\" string`)
-                    }
-                    indStart = indStart + END_OF_HEADER.length
-                    // indStart = indStart + START_TEXT.length
-                    let indEnd = text.indexOf(END_OF_PROGRAM)
-                    if (indEnd < 0) {
-                        say(`LST FILE missing \"${END_OF_PROGRAM}\" string. Maybe Generated on old software`)
-                        indEnd = text.length;
-                    } else {
-                        indEnd = indEnd
-                    }
-                    global_LST_headers = text.substring(0, indStart)
-                    // START_TEXT_INDEX = global_LST_headers.indexOf()
-                    // global_LST_headers_DEFS = 
-                    global_LST_headers = text.substring(0, indStart)
-
-                    let d1i = global_LST_headers.indexOf("DEF INT")
-                    let d2i = global_LST_headers.indexOf("DEF REAL")
-                    let d3i = global_LST_headers.indexOf("DEF STRING")
-
-                    let anyDefs = [d1i, d2i, d3i].some(x => x > -1)
-                    if (anyDefs) {
-                        swal.fire("file contains dynamic variables<BR> Attempting Now to parse the logic to show simulation correctly")
-
-                    }
-                    global_LST_footers = text.substring(indEnd, text.length)
-
-                    text = text.substring(indStart, indEnd)
-                    say("finished separating gcode");
-                    progfnm.innerText = fnm
-                    global_points = []
-                    sections = interpretGCode(text, global_points)
-                    blocks = groupSectionsInBlocks(sections)
-                    // blocks = RenumberProgram(blocks)
-                    StartTrim = 0
-                    EndTrim = blocks.length - 1;
-                    EndTrimManual.value = EndTrim + 1;
-                    StartTrimManual.value = 0 + 1;
-                    StartBlockspan.innerText = blocks[0]._B
-                    EndBlockspan.innerText = blocks[blocks.length - 1]._B
-                    selectBlocks(0, EndTrim)
-                    blocks.flat().forEach(s => s.select = false)
-                    trimLengthSpan.innerText = blocks.length + " (not highlighting)"
-                    // MakeLoopUI()
-                    //test:
-
-                    // outputGcodeStr = outputGcode(blocks)
-
-                    // AutoMetablock2()
-                    //                     setMacroFromString(`N30;==================== BLOCK_START 1 ===============
-                    // N40; LEAD_IN_START
-                    // ;ENTRY_LASER:
-                    // BLOCK_1:
-                    // N50 G01 X = 0 Y = 0 Z = -197.00 B = 0.00 C = 0.00 F = 173000
-                    // N60; LEAD_IN_END
-                    // N70 R1 = 0 R2 = 0 R3 = -207.00 R4 = 0.00 R5 = 0.00 R11 = 0.00 R26 = 12.00
-                    // N80 TC_CIRC2(5,2.5,0.50,9,10,100,"SS1MM")
-                    // N90;======\============== BLOCK_END ======================`)
-                    // shiftSelection(-1)
-                    // replaceBlocksWithAMacroUI()
-                    // drawFromPoints(blocks, true)
-
-                    // console.log(profiles)
-                    // blocks.flat().map(s => say(s))
-                    // sections.filter(s => !(s.typ in NOT_OFFSETABLE_CMDS)).map(s => say(s.gc))
-                    // blocks[profiles.i] = profiles.block
-
-                    drawFromBlocksSIM(blocks, false)
-                    return;
-
-
-                    blocksOriginal = JSON.parse(JSON.stringify(blocks))
-                    // checkifRepeatsCorrectly(metablock1, blocks)
-
-
-
-
-
-                    str = getNumericCode_str_repr(sections)
-                    if (window.fileToLoad) {
-                        console.log(window.fileToLoad.name)
-                    }
-
-                    // console.log(str)
-
-                    return;
-
-                }
-
-                function getSelectionBlocks() {
-                    let selectedBlocks = [];
-                    blocks.forEach(b, i => {
-                        allscsselected = b.map(s => s.select).every(x => x)
-                        if (allscsselected) {
-                            block.select = true
-                            selectBlocks.push(block)
-                        }
-
-                    })
-                    return selectBlocks;
-                }
 
                 function getSelectionSections() {
 
@@ -560,7 +699,8 @@ saveText(str, nufnm + ".LST.c")                                    }
                     }
                 }
                 
-                function findProfiles1() {
+
+                function findProfiles1UI() {
                     profiles = findBiggestBboxesAndTheirIndices(blocks)
                     if (!profiles) {
 
@@ -570,20 +710,64 @@ saveText(str, nufnm + ".LST.c")                                    }
                     }
                     if (profiles) {
                         //TODO do not select yet 
-                        say(blocks)
-                        say(profiles)
-                        profiles= [profiles[0]]
+                        say('profiles0', profiles[0])
+                        profiles = [profiles[0]]
+                        let Bs = profiles.map(x => x.block)
+                        profiles = Bs
+                        say("Bs:", Bs)
+
+
+                        metablock_select_set(Bs, true)
+                        profilesindices = profiles.map(pr => blocks.indexOf(pr))
+                        trimLengthSpan.innerText = profiles.length + " first profile"
+                    
+                        drawFromPoints(blocks)
+                        UIUpdate()
+
+                    }
+                }
+
+                
+
+                function findPart1UI() {
+                    profiles = findBiggestBboxesAndTheirIndices(blocks)
+                    
+                    if (!profiles) {
+
+                        msg = ("could not find automatically the metablock it may mean that program 1st part and second part are inconsistent, TODO WIP:please select manually")
+                        say(msg)
+                        return swal.fire(msg)
+                    }
+                    if (profiles) {
+                        //TODO do not select yet 
+                        
+                        profiles = [profiles[0]]
                         let Bs = profiles.map(x => x.block)
                         profiles = Bs
                         say("Bs:", Bs)
                         metablock_select_set(Bs, true)
+                      
+                       features = findBlocksInsideProfile(profiles[0],blocks)
+                       metablock_select_set(features, true)
                         trimLengthSpan.innerText = profiles.length + " first profile"
+                       //delete all non part 
+                        blocks = [profiles[0],...features]
+
+
+                        //todo now do algorithm on profile and featureses
+                        //todo now when converting lines to sections
+                        //save info is block a CIRC etc
+
+                       let profileBlender =  outputBlenderDataArrays([profiles[0]])
+
+
                         drawFromPoints(blocks)
 
 
                         profilesindices = profiles.map(pr => blocks.indexOf(pr))
 
-                        
+                        UIUpdate()
+
                     }
                 }
 
@@ -761,10 +945,12 @@ saveText(str, nufnm + ".LST.c")                                    }
                     StartTrim = parseInt(StartTrimManual.value) - 1
                     // StartTrim = nuStartTrim > blocks.length
                     selectBlocks(StartTrim, EndTrim)
+                    drawFromPoints(blocks)
                 }
                 function set_EndTrim() {
                     EndTrim = parseInt(EndTrimManual.value) - 1
                     selectBlocks(StartTrim, EndTrim)
+                    drawFromPoints(blocks)
                 }
 
                 function set_tolerance() {
@@ -854,11 +1040,12 @@ saveText(str, nufnm + ".LST.c")                                    }
 
                 function deleteSelectedBlocksRange() {
                     say(blockselection)
-                    
+removeItems(blocks, blockselection)
                     drawFromPoints(blocks)
                 }
 
-function deleteNonSelected() {
+
+                function deleteNonSelected() {
                     say(blockselection)
                     blocks = blockselection
                     drawFromPoints(blocks)
@@ -950,6 +1137,12 @@ function deleteNonSelected() {
                     let hm = HowManyWillFitY(toRepeat, maxY, dist)
                     RepeatBlocksinAxis(toRepeat, "y", hm - 1, dist);
                 }
+                
+                function MakeRowX(toRepeat, maxY, dist = 5) {
+
+                    let hm = HowManyWillFitX(toRepeat, maxY, dist)
+                    RepeatBlocksinAxis(toRepeat, "x", hm - 1, dist);
+                }
 
                 function MakeLoopUI() {
                     arrh = ['',
@@ -995,7 +1188,7 @@ function deleteNonSelected() {
                         let hmy = HowManyWillFitY(toRepeat, maxY, dist)
                         let hmx;
                         if (mmorreps) {
-                            hmx = HowManyWillFitY(toRepeat, maxX, dist)
+                            hmx = HowManyWillFitX(toRepeat, maxX, dist)
                         }
                         else {
                             hmx = maxX
@@ -1008,35 +1201,36 @@ function deleteNonSelected() {
                         let totalRepeatsOrParts = hmx * hmy;
 
 
-                        let STRING_definitions1 = 
-`;==== START OF REP VARIABLES =====
+                        let STRING_definitions1 =
+                            `;==== START OF REP VARIABLES =====
 DEF INT CVLX = 0;
 DEF INT CVLY = 0;
-DEF INT CVMAXX = ${hmx};
+DEF INT CVMAXX = ${hmx}; 
 DEF INT CVMAXY = ${hmy};
 DEF INT CVREPS = 0;
 DEF INT CVMAXREPS = ${totalRepeatsOrParts};
-; these are safety to prevent going off sheet
+; these below are safety to prevent going off sheet
 DEF INT CVSHEETX = ${maxX};
 DEF INT CVSHEETY = ${maxY};
 DEF INT CVPARTX = ${Math.ceil(partSizeX)};include margin
 DEF INT CVPARTY = ${Math.ceil(partSizeY)};include margin
+DEF REAL CVBBXMINX = ${bbox.minX} 
+DEF REAL CVBBXBOTTY = ${bbox.maxY} 
+DEF REAL CVBBXTOPY = CVBBXBOTTY - ${totalMaxY.toFixed(2)}
+DEF REAL CVBBXMAXX = CVBBXMINX + ${totalMaxX.toFixed(2)}
 ;==== END OF REP VARIABLES =====
 ;start at: 
-DEF INT CVLY = 0;start at- change to start later part
-DEF INT CVLX = 0;start at- change to start later part
+DEF INT CVLY = 0;start at- change this to start from later part row(not negative!)
+DEF INT CVLX = 0;start at- change this to start from later part column
 `
 
-
-
-
-                        let STRING_info = 
-`; this looped program cuts ${totalRepeatsOrParts} repeats/parts
+ let STRING_info =
+                            `; this looped program cuts ${totalRepeatsOrParts} repeats / (one repeat may be two interlocked parts)
 ; in a grid of ${hmy} rows and ${hmx} columns  
-; total machining area is ${totalMaxY.toFixed(2)} in Y and ${totalMaxX.toFixed(2)} in X  
-; EDITING:in order to edit path(Trutops) :
+; total machining area is ${totalMaxY.toFixed(2)} in Y and ${totalMaxX.toFixed(2)} in X  (if original generated settings unchanged)
+; EDITING in TrueTops :in order to edit path(Trutops) :
 ; comment out line starting with GOTOB 
-; at the end of the program.
+; at the end of the program.(search 
 ; WARNING! any on-line changes to anything below these lines may result in collision
 ; loop is created in such a way that moveaway in Z should not be needed
 ; any move away lines can be added after line saying "MOVEAWAY" near the end of the program
@@ -1047,13 +1241,71 @@ DEF INT CVLX = 0;start at- change to start later part
                         let STRING_definitionsCopy = STRING_definitions1.split("\n").join("\n;")
                         let STRING_definitions = STRING_definitions1 + STRING_info + STRING_definitionsCopy
 
-                        let STRING_loop_logic = 
-`REPSTART_SETG54:
-G4 F5.0
-SET_G54(CVPARTX*CVLX, CVPARTY*-CVLY, 0.00)
+                        let STRING_loop_start =
 `
-                        let STRING_loop_inc = 
-`;=========START OF REP LOGIC=======
+GOTOF TESTFIT;sheet fit test - do after any change,uncomment if ok
+GOTOF REPLOGIC;for testing loop
+REPSTART:
+G4 F5.0
+TRANS X = CVPARTX*CVLX Y = CVPARTY*-CVLY
+`;
+
+let STRING_testfit = 
+`
+TESTFIT:
+;bottom right test
+N190;==================== BLOCK_START 999999 ===============
+N200; LEAD_IN_START
+BLOCK_999999:
+N210 G01 X = CVBBXMINX Y = CVBBXBOTTY Z = 300.00 B = 0.00 C = 0.00 F = 173000
+N220 G01 X = CVBBXMINX Y = CVBBXBOTTY Z = -187 B = 0.00 C = 0.00
+N240; LEAD_IN_END
+N250 G01 X = CVBBXMINX Y = CVBBXBOTTY Z = -187.00 B = 0.00 C = 0.00
+N260 G01 X = CVBBXMINX Y = CVBBXBOTTY-10.00 Z = -187.00 B = 0.00 C = 0.00
+N270 G01 X = CVBBXMINX Y = CVBBXBOTTY Z = -187.00 B = 0.00 C = 0.00
+N280 G01 X = CVBBXMINX+10 Y = CVBBXBOTTY Z = -187.00 B = 0.00 C = 0.00
+N290 G01 X = CVBBXMINX Y = CVBBXBOTTY Z = -187.00 B = 0.00 C = 0.00
+N300; LEAD_OUT_START
+N310 TC_LASER_OFF(3)
+N320 G01 X = CVBBXMINX Y = CVBBXBOTTY Z = 300.00 B = 0.00 C = 0.00 F = 173000
+N330; LEAD_OUT_END
+N340;==================== BLOCK_END ======================
+
+CVBBXMAXX = CVMAXX * CVPARTX; 
+; if operator adjusted cvmaxreps this shows automatically new bounds
+IF CVMAXREPS < CVMAXX * CVMAXY:
+	CVBBXMAXX = (CVMAXREPS * CVPARTX * CVPARTY / CVMAXY ) + CVBBXMINX
+ENDIF 
+
+; and y is always just this 
+CVBBXTOPY = CVBBXBOTTY - CVMAXY * CVPARTY
+;if operator adjusted cvmaxreps resulting in only one row and less max reps than row
+IF CVMAXREPS < CVMAXY:
+	CVBBXTOPY = CVBBXBOTTY - CVMAXREPS * CVPARTY 
+ENDIF 
+
+;top left test
+N190;==================== BLOCK_START 999999 ===============
+N200; LEAD_IN_START
+BLOCK_999999:
+N210 G01 X = CVBBXMAXX Y = CVBBXTOPY Z = 300.00 B = 0.00 C = 0.00 F = 173000
+N220 G01 X = CVBBXMAXX Y = CVBBXTOPY Z = -187 B = 0.00 C = 0.00
+N240; LEAD_IN_END
+N250 G01 X = CVBBXMAXX Y = CVBBXTOPY Z = -187.00 B = 0.00 C = 0.00
+N260 G01 X = CVBBXMAXX Y = CVBBXTOPY+10.00 Z = -187.00 B = 0.00 C = 0.00
+N270 G01 X = CVBBXMAXX Y = CVBBXTOPY Z = -187.00 B = 0.00 C = 0.00
+N280 G01 X = CVBBXMAXX-10 Y = CVBBXTOPY Z = -187.00 B = 0.00 C = 0.00
+N290 G01 X = CVBBXMAXX Y = CVBBXTOPY Z = -187.00 B = 0.00 C = 0.00
+N300; LEAD_OUT_START
+N310 TC_LASER_OFF(3)
+N320 G01 X = CVBBXMAXX Y = CVBBXTOPY Z = 300.00 B = 0.00 C = 0.00 F = 173000
+N330; LEAD_OUT_END
+N340;==================== BLOCK_END ======================
+; then end of program
+`
+
+                        let STRING_loop_inc =
+                            `;=========START OF REP LOGIC=======
 REPLOGIC:
 Z=400
 TC_LASER_OFF(2)
@@ -1084,8 +1336,16 @@ CVLY = CVLY+1
 			GOTOF PROG_END
 	ENDIF
 MSG("XmaxLeft:" << CVPARTX*(CVLX+1)) << " YmaxTop:" << CVPARTY*(CVLY+1));
-GOTOB REPSTART_SETG54;
+;===================================================================================
+;=================== Uncomment GOTOB to run repetitions ==================================================
+;comment to run repetitions,uncomment to edit in TrueTops
+;GOTOB REPSTART; comment out before opening TrueTops
+===================================================================================
+;=================== Uncomment GOTOB to run in repetitions ==================================================
+;
 ENDIF
+
+${STRING_testfit}
 
 PROG_END:
 G01 Z=500;moveaway
@@ -1094,28 +1354,32 @@ Y = 400;
 ;=========END OF REP LOGIC====
 `
 
+
+
+
+
+
+
+alert([bbox.maxY,bbox.minY])
                         operateOnTransformedLSTParts(
                             (nufnm, nu_LST_headers, outputGcodeStr, global_LST_footers) => {
-                         nu_LST_headers
+                                nu_LST_headers
                                 str = [nu_LST_headers, STRING_definitions, outputGcodeStr, global_LST_footers].join("\n")
                                 //put definitions at the very start of the program
                                 nu_LST_headers = nu_LST_headers.replace(START_TEXT, [START_TEXT, STRING_definitions].join("\n"))
 
                                 window.outLST = {
-                                    nu_LST_headers, STRING_loop_logic, outputGcodeStr, STRING_loop_inc, global_LST_footers
+                                    nu_LST_headers, STRING_loop_start, outputGcodeStr, STRING_loop_inc, global_LST_footers
                                 }
                                 console.error("TODO TODO TODO TODO no semicolon before END_OF_PROGRAM monkey fix!!!")
-                                outLSTstr = [nu_LST_headers,outputGcodeStr,";" + global_LST_footers].join("\n")
-								//STRING_loop_logic, STRING_loop_inc
+                                outLSTstr = [nu_LST_headers, outputGcodeStr, ";" + global_LST_footers].join("\n")
+                                //STRING_loop_start, STRING_loop_inc
 
-								const splitter = new StringSplitter(outLSTstr);
-								var jumpToLogic = 
-`
-GOTOF REPLOGIC;for testing
-`
+                                const splitter = new StringSplitter(outLSTstr);
+                                
 
-                                splitter.insertAfter('SET_G54', STRING_loop_logic);
-                                splitter.insertAfter('END_OF_HEADER', jumpToLogic);
+                                
+                                splitter.insertAfter('END_OF_HEADER', STRING_loop_start);
                                 splitter.insertAfter('END_OF_PROGRAM', STRING_loop_inc);
                                 const updatedString = splitter.toString();
 
@@ -1150,6 +1414,24 @@ GOTOF REPLOGIC;for testing
                     if (isNaN(dist)) return;
                     MakeRow(blockselection, maxY, dist)
                 }
+
+function MakeRowUIX() {
+                    if (!blockselection.length) {
+                        return swal.fire("please select blocks to repeat first")
+                    }
+                    let maxY = prompt("enter sheet Y size in mm", "2500")
+                    let dist = prompt("enter distance between blanks mm", "5")
+                    if (!maxY) return;
+                    if (!dist) return;
+                    maxY = parseInt(maxY)
+                    dist = parseInt(dist)
+                    if (isNaN(maxY)) return;
+                    if (isNaN(dist)) return;
+                    MakeRowX(blockselection, maxY, dist)
+                }
+
+
+
 
                 function scaleProgtoFit(maxX, maxY) {
                     throw Error("unimplemented")
@@ -1224,6 +1506,25 @@ GOTOF REPLOGIC;for testing
                     return curBGindex;
                 }
 
+
+
+
+                function getSelectionBlocks() {
+                    let selectedBlocks = [];
+                    blocks.forEach(b, i => {
+                        allscsselected = b.map(s => s.select).every(x => x)
+                        if (allscsselected) {
+                            block.select = true
+                            selectBlocks.push(block)
+                        }
+
+                    })
+                    return selectBlocks;
+                }
+
+
+
+
             </script>
 
 
@@ -1249,7 +1550,7 @@ GOTOF REPLOGIC;for testing
                             moveControls(event)
                         }
                     }, true)
-                    window.addEventListener('mouseup', function () {
+                    appcontainer.addEventListener('mouseup', function () {
                         mousedowned = false;
                         if (dragged == true) {
                             return
@@ -1282,19 +1583,19 @@ GOTOF REPLOGIC;for testing
 
                 })
 
-                window.addEventListener('mousedown', function (event) {
+                appcontainer.addEventListener('mousedown', function (event) {
                     mousedowned = true;
                     dragged = false
                     moveControls(event);
                 }, false)
-                window.addEventListener('mousemove', function (event) {
+                appcontainer.addEventListener('mousemove', function (event) {
 
                     if (mousedowned) {
                         dragged = true
                         moveControls(event)
                     }
                 }, true)
-                window.addEventListener('mouseup', function () {
+                appcontainer.addEventListener('mouseup', function () {
                     mousedowned = false;
                     if (dragged == true) {
                         return
@@ -1343,9 +1644,13 @@ GOTOF REPLOGIC;for testing
                         cX: 0,
                         cY: 0,
                     }
-                }
+}
+
 
             </script>
+            <canvas id=canvass></canvas>
+</div>
+    <script src="trumpftoStandardgcode.js"></script>
 
 
 </body>
